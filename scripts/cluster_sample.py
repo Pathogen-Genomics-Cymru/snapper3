@@ -140,14 +140,14 @@ def main(args):
         nbhood = {'closest_distance': int,
                   'nearest_t': int,
                   'closest_sample': int,
-                  'closest_snad': [list of 8 ints]}
+                  'closest_snad': [list of 5 ints]}
         """
         logging.debug("Sample neighbourhood: %s", str(nbhood))
 
         new_snad = sndb.get_new_snp_address(nbhood)
 
-        logging.info("Proposed SNP address for this sample: %s-%s-%s-%s-%s-%s-%s-%s",
-                      new_snad[7], new_snad[6], new_snad[5], new_snad[4], new_snad[3], new_snad[2], new_snad[1], new_snad[0])
+        logging.info("Proposed SNP address for this sample: %s-%s-%s-%s-%s",
+                      new_snad[4], new_snad[3], new_snad[2], new_snad[1], new_snad[0])
 
         merges = merging.check_merging_needed(cur, distances, new_snad)
 
@@ -178,7 +178,7 @@ def main(args):
 
         if args['with_registration'] == True:
 
-            levels = [0, 2, 5, 10, 25, 50, 100, 250]
+            levels = [0, 2, 5, 10, 25]
             for lvl in merges.keys():
                 merging.do_the_merge(cur, merges[lvl])
                 # If merging cluster a and b, the final name of the merged cluster can be either a or b.
@@ -189,12 +189,9 @@ def main(args):
             final_snad = regis.register_sample(cur, sample_id, distances, new_snad, args['no_zscore_check'])
 
             if final_snad != None:
-                logging.info("Sample %s with sample_id %s was registered in the database with SNP address: %s-%s-%s-%s-%s-%s-%s-%s",
+                logging.info("Sample %s with sample_id %s was registered in the database with SNP address: %s-%s-%s-%s-%s",
                              args['sample_name'],
                              sample_id,
-                             final_snad[7],
-                             final_snad[6],
-                             final_snad[5],
                              final_snad[4],
                              final_snad[3],
                              final_snad[2],

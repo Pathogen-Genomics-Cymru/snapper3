@@ -124,7 +124,7 @@ class SnapperDBInterrogation(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def get_closest_samples(self, sam_name, neighbours, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
+    def get_closest_samples(self, sam_name, neighbours, levels=[0, 2, 5, 10, 25]):
         """
         Get the closest n samples.
 
@@ -135,7 +135,7 @@ class SnapperDBInterrogation(object):
         neighbours: int
             number on neighbours
         levels: list of int
-            default: [0, 2, 5, 10, 25, 50, 100, 250]
+            default: [0, 2, 5, 10, 25]
             better don't change it
 
         Returns
@@ -145,12 +145,12 @@ class SnapperDBInterrogation(object):
         """
 
         # get the snp address of the query sample
-        sql = "SELECT s.pk_id, c.t0, c.t2, c.t5, c.t10, c.t25, c.t50, c.t100, c.t250 FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
+        sql = "SELECT s.pk_id, c.t0, c.t2, c.t5, c.t10, c.t25 FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
         self.cur.execute(sql,(sam_name, ))
         if self.cur.rowcount < 1:
             raise SnapperDBInterrogationError("No clustering information found for sample %s" % (sam_name))
         row = self.cur.fetchone()
-        snad = [row['t0'], row['t2'], row['t5'], row['t10'], row['t25'], row['t50'], row['t100'], row['t250']]
+        snad = [row['t0'], row['t2'], row['t5'], row['t10'], row['t25']]
         samid = row['pk_id']
 
         close_samples = set()
@@ -190,7 +190,7 @@ class SnapperDBInterrogation(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def get_samples_below_threshold(self, sam_name, dis, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
+    def get_samples_below_threshold(self, sam_name, dis, levels=[0, 2, 5, 10, 25]):
         """
         Get all samples that are below or equal to a given distance from the query sample.
 
@@ -201,7 +201,7 @@ class SnapperDBInterrogation(object):
         dis: int
             distance threshold
         levels: list of ints
-            default: [0, 2, 5, 10, 25, 50, 100, 250]
+            default: [0, 2, 5, 10, 25]
             better don't change it
 
         Returns
@@ -211,23 +211,23 @@ class SnapperDBInterrogation(object):
         """
 
         # get the snp address of the query sample
-        sql = "SELECT s.pk_id, c.t0, c.t2, c.t5, c.t10, c.t25, c.t50, c.t100, c.t250 FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
+        sql = "SELECT s.pk_id, c.t0, c.t2, c.t5, c.t10, c.t25 FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
         self.cur.execute(sql,(sam_name, ))
         if self.cur.rowcount < 1:
             raise SnapperDBInterrogationError("No clustering information found for sample %s" % (sam_name))
         row = self.cur.fetchone()
-        snad = [row['t0'], row['t2'], row['t5'], row['t10'], row['t25'], row['t50'], row['t100'], row['t250']]
+        snad = [row['t0'], row['t2'], row['t5'], row['t10'], row['t25']]
         samid = row['pk_id']
 
         ct = get_closest_threshold(dis)
         if ct != None:
-            # selected distance <250 -> use only samples in associated cluster for calculation
+            # selected distance <25 -> use only samples in associated cluster for calculation
             t_ct = 't%i' % (ct)
             cluster = snad[levels.index(ct)]
             sql = "SELECT s.sample_name AS samname, c.fk_sample_id AS samid FROM sample_clusters c, samples s WHERE c."+t_ct+"=%s AND s.pk_id=c.fk_sample_id"
             self.cur.execute(sql, (cluster, ))
         else:
-            # selected distance >250 -> use all samples that have been clustered and are not ignored for calculation
+            # selected distance >25 -> use all samples that have been clustered and are not ignored for calculation
             sql = "SELECT s.sample_name AS samname, c.fk_sample_id AS samid FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.ignore_sample IS FALSE AND s.sample_name<>%s"
             self.cur.execute(sql, (sam_name, ))
 
@@ -267,7 +267,7 @@ class SnapperDBInterrogation(object):
             "1.2.3.4.5.6.7" if successful else None
         """
 
-        sql = "SELECT c.t0, c.t2, c.t5, c.t10, c.t25, c.t50, c.t100, c.t250 FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
+        sql = "SELECT c.t0, c.t2, c.t5, c.t10, c.t25 FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
         self.cur.execute(sql, (sam_name, ))
         if self.cur.rowcount < 1:
             raise SnapperDBInterrogationError("No clustering information found for sample %s" % (sam_name))
@@ -275,7 +275,7 @@ class SnapperDBInterrogation(object):
             raise SnapperDBInterrogationError("Too much clustering information found for sample %s" % (sam_name))
         else:
             row = self.cur.fetchone()
-            return "%i.%i.%i.%i.%i.%i.%i.%i" % (row['t250'], row['t100'], row['t50'], row['t25'], row['t10'], row['t5'], row['t2'], row['t0'])
+            return "%i.%i.%i.%i.%i" % (row['t25'], row['t10'], row['t5'], row['t2'], row['t0'])
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -294,7 +294,7 @@ class SnapperDBInterrogation(object):
             e.g.: 100>=x>50
         """
 
-        sql = "SELECT c.t0, c.t2, c.t5, c.t10, c.t25, c.t50, c.t100, c.t250 FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
+        sql = "SELECT c.t0, c.t2, c.t5, c.t10, c.t25 FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
         self.cur.execute(sql, (sam_name, ))
         if self.cur.rowcount < 1:
             raise SnapperDBInterrogationError("No clustering information found for sample %s" % (sam_name))
@@ -303,14 +303,14 @@ class SnapperDBInterrogation(object):
         else:
             row = self.cur.fetchone()
 
-        levels = [250, 100, 50, 25, 10, 5, 2, 0]
+        levels = [25, 10, 5, 2, 0]
         for lvl in levels:
             t_lvl = 't%i' % (lvl)
             sql = "SELECT pk_id FROM sample_clusters WHERE " + t_lvl + "=%s"
             self.cur.execute(sql, (row[t_lvl], ))
             if self.cur.rowcount == 1:
-                if lvl == 250:
-                    nearest = "x>250"
+                if lvl == 25:
+                    nearest = "x>25"
                 else:
                     nearest = "%i>=x>%i" % (levels[levels.index(lvl)-1], lvl)
                 break
@@ -340,7 +340,7 @@ class SnapperDBInterrogation(object):
                          ...]}
         """
 
-        sql = "SELECT s.pk_id, c.t0, c.t2, c.t5, c.t10, c.t25, c.t50, c.t100, c.t250 \
+        sql = "SELECT s.pk_id, c.t0, c.t2, c.t5, c.t10, c.t25 \
                FROM sample_clusters c, samples s WHERE s.pk_id=c.fk_sample_id AND s.sample_name=%s"
         self.cur.execute(sql, (sam_name, ))
         if self.cur.rowcount < 1:
@@ -351,12 +351,12 @@ class SnapperDBInterrogation(object):
             row = self.cur.fetchone()
 
         sam_id = row['pk_id']
-        levels = [250, 100, 50, 25, 10, 5, 2, 0]
+        levels = [25, 10, 5, 2, 0]
         res = {'current_snad': '.'.join([str(row['t%i' % (lvl)]) for lvl in levels]),
                'history': []}
 
-        sql = "SELECT t0_old, t2_old, t5_old, t10_old, t25_old, t50_old, t100_old, t250_old, t0_new, t2_new, \
-                      t5_new, t10_new, t25_new, t50_new, t100_new, t250_new, renamed_at FROM sample_history WHERE fk_sample_id=%s"
+        sql = "SELECT t0_old, t2_old, t5_old, t10_old, t25_old, t0_new, t2_new, \
+                      t5_new, t10_new, t25_new, renamed_at FROM sample_history WHERE fk_sample_id=%s"
         self.cur.execute(sql, (sam_id, ))
         rows = self.cur.fetchall()
         for r in rows:

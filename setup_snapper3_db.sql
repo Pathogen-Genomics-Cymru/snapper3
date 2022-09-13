@@ -40,17 +40,11 @@ CREATE TABLE sample_clusters (
     t5 integer,
     t10 integer,
     t25 integer,
-    t50 integer,
-    t100 integer,
-    t250 integer,
     t0_mean double precision,
     t2_mean double precision,
     t5_mean double precision,
     t10_mean double precision,
-    t25_mean double precision,
-    t50_mean double precision,
-    t100_mean double precision,
-    t250_mean double precision
+    t25_mean double precision
 );
 
 DROP TABLE IF EXISTS cluster_stats;
@@ -82,17 +76,11 @@ CREATE TABLE sample_history (
     t5_old integer,
     t10_old integer,
     t25_old integer,
-    t50_old integer,
-    t100_old integer,
-    t250_old integer,
     t0_new integer,
     t2_new integer,
     t5_new integer,
     t10_new integer,
     t25_new integer,
-    t50_new integer,
-    t100_new integer,
-    t250_new integer,
     renamed_at timestamp
 );
 

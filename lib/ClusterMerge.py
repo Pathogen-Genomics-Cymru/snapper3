@@ -80,7 +80,7 @@ class ClusterMerge(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def update_tables(self, cur, levels=['t250', 't100', 't50', 't25', 't10', 't5', 't2', 't0']):
+    def update_tables(self, cur, levels=['t25', 't10', 't5', 't2', 't0']):
         '''
         Update the entries in the tables for this merge.
 
@@ -91,7 +91,7 @@ class ClusterMerge(object):
         cur: obj
             database cursor
         levels: list
-            default: ['t250', 't100', 't50', 't25', 't10', 't5', 't2', t0']
+            default: ['t25', 't10', 't5', 't2', t0']
 
         Returns
         -------
@@ -119,7 +119,7 @@ class ClusterMerge(object):
             cur.execute(sql, (self.t_level, source, self.final_name, nownow, ))
 
         # write to the log which samples get changed from what to what
-        sql = "SELECT s.pk_id, s.sample_name, c.t0, c.t2, c.t5, c.t10, c.t25, c.t50, c.t100, c.t250 FROM samples s, sample_clusters c WHERE s.pk_id=c.fk_sample_id AND c."+self.t_level+" IN %s"
+        sql = "SELECT s.pk_id, s.sample_name, c.t0, c.t2, c.t5, c.t10, c.t25 FROM samples s, sample_clusters c WHERE s.pk_id=c.fk_sample_id AND c."+self.t_level+" IN %s"
         cur.execute(sql , (tuple([x for x in self.org_clusters if x != self.final_name]), ))
         rows = cur.fetchall()
         for r in rows:
@@ -129,12 +129,9 @@ class ClusterMerge(object):
                             '-'.join([str(self.final_name) if x == self.t_level else str(r[x]) for x in levels]))
 
             # also write this to a table
-            sql = "INSERT INTO sample_history (fk_sample_id, t250_old, t100_old, t50_old, t25_old, t10_old, t5_old, t2_old, t0_old, t250_new, t100_new, t50_new, t25_new, t10_new, t5_new, t2_new, t0_new, renamed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            sql = "INSERT INTO sample_history (fk_sample_id, t25_old, t10_old, t5_old, t2_old, t0_old, t25_new, t10_new, t5_new, t2_new, t0_new, renamed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             cur.execute(sql ,(r['pk_id'], \
-                              r['t250'], r['t100'], r['t50'], r['t25'], r['t10'], r['t5'], r['t2'], r['t0'], \
-                              self.final_name if self.t_level == 't250' else r['t250'], \
-                              self.final_name if self.t_level == 't100' else r['t100'], \
-                              self.final_name if self.t_level == 't50' else r['t50'], \
+                              r['t25'], r['t10'], r['t5'], r['t2'], r['t0'], \
                               self.final_name if self.t_level == 't25' else r['t25'], \
                               self.final_name if self.t_level == 't10' else r['t10'], \
                               self.final_name if self.t_level == 't5' else r['t5'], \

@@ -81,13 +81,13 @@ def get_closest_samples(cur, distances):
     closest_distance = distances[0][1]
     closest_sample = distances[0][0]
 
-    # returns None if sample is >250 away from closest neighbour
+    # returns None if sample is >25 away from closest neighbour
     nearest_t = get_closest_threshold(closest_distance)
 
-    sql = "SELECT t0, t2, t5, t10, t25, t50, t100, t250 FROM sample_clusters WHERE fk_sample_id=%s"
+    sql = "SELECT t0, t2, t5, t10, t25 FROM sample_clusters WHERE fk_sample_id=%s"
     cur.execute(sql, (closest_sample, ))
     row = cur.fetchone()
-    closest_snad = [ row['t0'], row['t2'], row['t5'], row['t10'], row['t25'], row['t50'], row['t100'], row['t250'] ]
+    closest_snad = [ row['t0'], row['t2'], row['t5'], row['t10'], row['t25']]
 
     return {'closest_distance': closest_distance,
             'nearest_t': nearest_t,
@@ -96,7 +96,7 @@ def get_closest_samples(cur, distances):
 
 # --------------------------------------------------------------------------------------------------
 
-def get_new_snp_address(nbhood, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
+def get_new_snp_address(nbhood, levels=[0, 2, 5, 10, 25]):
     """
     Get the proposed new SNP address for a sample based on it's neighbourhood.
 
@@ -106,12 +106,12 @@ def get_new_snp_address(nbhood, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
         {'closest_distance': int,
          'nearest_t': int,
          'closest_sample': int,
-         'closest_snad': [list of 8 ints]}
+         'closest_snad': [list of 5 ints]}
 
     Returns
     -------
     snad: list
-        [t0 or None, t5 or None, t10, t25, t50, t100, t250]
+        [t0 or None, t2 or None, t5  t10, t25]
     """
 
     # get the snpaddr from the closest sample
@@ -123,13 +123,13 @@ def get_new_snp_address(nbhood, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
             snad[x] = None
             x += 1
     except IndexError:
-        # this happens when the closest sample is >250 away
+        # this happens when the closest sample is >25 away
         pass
     return snad
 
 # --------------------------------------------------------------------------------------------------
 
-def check_zscores(cur, distances, new_snad, merges, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
+def check_zscores(cur, distances, new_snad, merges, levels=[0, 2, 5, 10, 25]):
     """
     Check the zscores of putting a new sample in the clusters proposed, considering merges.
 
@@ -141,7 +141,7 @@ def check_zscores(cur, distances, new_snad, merges, levels=[0, 2, 5, 10, 25, 50,
         sorted list of tuples with (sample_id, distance) with closes sample first
         e.g. [(298, 0), (37, 3), (55, 4)]
     new_snad: list
-        [t0 or None, t5 or None, t10, t25, t50, t100, t250]
+        [t0 or None, t5 or None, t10, t25]
     merges: dict
         {lvl: ClusterMerge object}
 
@@ -294,7 +294,7 @@ def check_duplicate_clustering(cur, sample_id):
 
     """
 
-    sql = "SELECT t250, t100, t50, t25, t10, t5, t2, t0 FROM sample_clusters WHERE fk_sample_id=%s"
+    sql = "SELECT t25, t10, t5, t2, t0 FROM sample_clusters WHERE fk_sample_id=%s"
     cur.execute(sql, (sample_id, ))
     if cur.rowcount == 0:
         rc = 0

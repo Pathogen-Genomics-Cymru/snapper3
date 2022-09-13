@@ -38,7 +38,7 @@ def check_json_format(data):
 
 # --------------------------------------------------------------------------------------------------
 
-def get_closest_threshold(i, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
+def get_closest_threshold(i, levels=[0, 2, 5, 10, 25]):
     """
     Get the closest snp address threshold level for a given distance.
 
@@ -59,7 +59,7 @@ def get_closest_threshold(i, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
         while levels[x] < i:
             x += 1
     except IndexError:
-        # this happens when the closest sample is >250 away
+        # this happens when the closest sample is >25 away
         return None
     return levels[x]
 

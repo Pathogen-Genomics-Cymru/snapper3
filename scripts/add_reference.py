@@ -181,12 +181,12 @@ def main(args):
                          contig_pkid,
                          len(ref_ign_pos))
 
-        # per definition the reference is in cluster 1,1,1,1,1,1,1
-        sql = "INSERT INTO sample_clusters (fk_sample_id, t0, t2, t5, t10, t25, t50, t100, t250) VALUES (%s, 1, 1, 1, 1, 1, 1, 1, 1)"
+        # per definition the reference is in cluster 1,1,1,1
+        sql = "INSERT INTO sample_clusters (fk_sample_id, t0, t2, t5, t10, t25) VALUES (%s, 1, 1, 1, 1, 1)"
         cur.execute(sql, (ref_pkid, ))
 
         # and these are the stats for these clusters
-        for t_lvl in ["t0", "t2", "t5", "t10", "t25", "t50", "t100", "t250"]:
+        for t_lvl in ["t0", "t2", "t5", "t10", "t25"]:
             sql = "INSERT INTO cluster_stats (cluster_level, cluster_name, nof_members, nof_pairwise_dists) VALUES (%s, 1, 1, 0)"
             cur.execute(sql, (t_lvl, ))
 

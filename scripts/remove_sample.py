@@ -133,7 +133,7 @@ def main(args):
                 return 0
 
         # get the snp address
-        sql = "SELECT t0, t2, t5, t10, t25, t50, t100, t250 FROM sample_clusters WHERE fk_sample_id=%s"
+        sql = "SELECT t0, t2, t5, t10, t25 FROM sample_clusters WHERE fk_sample_id=%s"
         cur.execute(sql, (sample_id, ))
         if cur.rowcount > 1:
             logging.error("There is not exactly one entry in sample clusters for this samples. :-(")
@@ -152,7 +152,7 @@ def main(args):
             conn.commit()
             return 0
         row = cur.fetchone()
-        snad = [row['t0'], row['t2'], row['t5'], row['t10'], row['t25'], row['t50'], row['t100'], row['t250']]
+        snad = [row['t0'], row['t2'], row['t5'], row['t10'], row['t25']]
 
         # 'global' container to keep distances to prevent repeated calculation of same distance
         # always keep distances[a][b] = d and distances[b][a] = d both
@@ -257,7 +257,7 @@ def make_known_outlier(cur, sample_id, snad, distances):
     sample_id: int
         id of sample to remove
     snad: list
-        [t0, t2, ..., t250]
+        [t0, t2, ..., t25]
     distances: dist
         distances[a][b] = d
         distances[b][a] = d
@@ -268,22 +268,22 @@ def make_known_outlier(cur, sample_id, snad, distances):
 
     """
 
-    # get all 250 members and calculate distances to them
-    sql = "SELECT c.fk_sample_id AS samid FROM sample_clusters c, samples s WHERE c.t250=%s AND c.fk_sample_id=s.pk_id AND s.ignore_zscore IS FALSE"
-    cur.execute(sql, (snad[7], ))
-    t250_members = [r['samid'] for r in cur.fetchall()]
+    # get all 25 members and calculate distances to them
+    sql = "SELECT c.fk_sample_id AS samid FROM sample_clusters c, samples s WHERE c.t25=%s AND c.fk_sample_id=s.pk_id AND s.ignore_zscore IS FALSE"
+    cur.execute(sql, (snad[4], ))
+    t25_members = [r['samid'] for r in cur.fetchall()]
     try:
-        t250_members.remove(sample_id)
+        t25_members.remove(sample_id)
     except ValueError:
-        logging.error("Bizzare data inconsistency for sample id %s and t250 cluster %s.", sample_id, snad[6])
+        logging.error("Bizzare data inconsistency for sample id %s and t25 cluster %s.", sample_id, snad[4])
         return  1
 
-    logging.info("Calculating %i distances to update stats.", len(t250_members))
+    logging.info("Calculating %i distances to update stats.", len(t25_members))
     # get the distances and remember them in the dict
     # we need them anyway, so we store them in the dict
-    _ = get_distances_from_memory(cur, distances, sample_id, t250_members)
+    _ = get_distances_from_memory(cur, distances, sample_id, t25_members)
 
-    for clu, lvl in zip(snad, [0, 2, 5, 10, 25, 50, 100, 250]):
+    for clu, lvl in zip(snad, [0, 2, 5, 10, 25]):
         t_lvl = "t%s" % (lvl)
 
         # get stats for this cluster
@@ -323,7 +323,7 @@ def make_known_outlier(cur, sample_id, snad, distances):
         cur.execute(sql, (oStats.members, oStats.nof_pw_dists, oStats.mean_pw_dist, oStats.stddev_pw_dist, t_lvl, clu, ))
 
     # for known outliers the mean distances to all other samples in the clusters are not kept
-    sql = "UPDATE sample_clusters SET (t0_mean, t2_mean, t5_mean, t10_mean, t25_mean, t50_mean, t100_mean, t250_mean) = (null, null, null, null, null, null, null, null) WHERE fk_sample_id=%s"
+    sql = "UPDATE sample_clusters SET (t0_mean, t2_mean, t5_mean, t10_mean, t25_mean) = (null, null, null, null, null) WHERE fk_sample_id=%s"
     cur.execute(sql, (sample_id, ))
 
     # set the flag
@@ -345,7 +345,7 @@ def update_clustering(cur, sample_id, snad, distances, zscr_flag):
     sample_id: int
         id of sample to remove
     snad: list
-        [t0, t5, ..., t250]
+        [t0, t5, ..., t25]
     distances: dist
         distances[a][b] = d
         distances[b][a] = d
@@ -370,27 +370,27 @@ def update_clustering(cur, sample_id, snad, distances, zscr_flag):
     # if the sample was previously included in the stats or there are any splits on any level
     # we need to (do the splitting and) update the stats
     if zscr_flag == False or any([x != None for x in splits.values()]):
-        # get all 250 members and calculate distances to them
-        sql = "SELECT c.fk_sample_id AS samid FROM sample_clusters c, samples s WHERE c.t250=%s AND c.fk_sample_id=s.pk_id AND s.ignore_zscore IS FALSE"
-        cur.execute(sql, (snad[7], ))
-        t250_members = [r['samid'] for r in cur.fetchall()]
+        # get all 25 members and calculate distances to them
+        sql = "SELECT c.fk_sample_id AS samid FROM sample_clusters c, samples s WHERE c.t25=%s AND c.fk_sample_id=s.pk_id AND s.ignore_zscore IS FALSE"
+        cur.execute(sql, (snad[4], ))
+        t25_members = [r['samid'] for r in cur.fetchall()]
         try:
-            logging.debug("Removing %s from list: %s", sample_id, t250_members)
-            t250_members.remove(sample_id)
+            logging.debug("Removing %s from list: %s", sample_id, t25_members)
+            t25_members.remove(sample_id)
         except ValueError:
             if zscr_flag == True:
-                logging.debug("Could not find %s as a member of t250 cluster %s, but it's OK because it's a known outlier.", sample_id, snad[6])
+                logging.debug("Could not find %s as a member of t25 cluster %s, but it's OK because it's a known outlier.", sample_id, snad[4])
             else:
-                logging.error("Bizzare data inconsistency for sample id %s and t250 cluster %s.", sample_id, snad[6])
+                logging.error("Bizzare data inconsistency for sample id %s and t25 cluster %s.", sample_id, snad[4])
                 return 1
 
-        logging.info("Calculating %i distances to update stats.", len(t250_members))
+        logging.info("Calculating %i distances to update stats.", len(t25_members))
         # get the distances and remember them in the dict
         # we need them anyway, so we store them in the dict
-        _ = get_distances_from_memory(cur, distances, sample_id, t250_members)
+        _ = get_distances_from_memory(cur, distances, sample_id, t25_members)
 
         # update all stats in all clusters on all levels
-        for clu, lvl in zip(snad, [0, 2, 5, 10, 25, 50, 100, 250]):
+        for clu, lvl in zip(snad, [0, 2, 5, 10, 25]):
             if update_cluster_stats_post_removal(cur, sample_id, clu, lvl, distances, splits[lvl], zscr_flag) == None:
                 logging.error("Problem with updating cluster stats.")
                 return 1
@@ -655,7 +655,7 @@ def drop_sample(cur, sid):
 
 # --------------------------------------------------------------------------------------------------
 
-def check_cluster_integrity(cur, sample_id, snad, distances, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
+def check_cluster_integrity(cur, sample_id, snad, distances, levels=[0, 2, 5, 10, 25]):
     """
     Check whether the removal of sample_id from any of its cluster necessitates
     the split of the cluster.
@@ -673,7 +673,7 @@ def check_cluster_integrity(cur, sample_id, snad, distances, levels=[0, 2, 5, 10
         distances[b][a] = d
     levels: list of 7 int
         better not change this
-        [0, 5, 10, 25, 50, 100, 250]
+        [0, 5, 10, 25]
 
     Returns
     -------
@@ -932,22 +932,22 @@ def update_sample_history(cur, lvl_in, new_clu_name, grli):
     0
     """
 
-    levels = ['t0', 't2', 't5', 't10', 't25', 't50', 't100', 't250']
+    levels = ['t0', 't2', 't5', 't10', 't25']
 
     for samid in grli:
 
-        sql = "SELECT t0, t2, t5, t10, t25, t50, t100, t250 FROM sample_clusters WHERE fk_sample_id=%s"
+        sql = "SELECT t0, t2, t5, t10, t25 FROM sample_clusters WHERE fk_sample_id=%s"
         cur.execute(sql, (samid, ))
         oldsnad = cur.fetchone()
 
         # one line conditional dictionary comprehension
         newsnad = {lvl: oldsnad[lvl] if lvl != lvl_in else new_clu_name for lvl in levels}
 
-        sql = "INSERT INTO sample_history (fk_sample_id, t250_old, t100_old, t50_old, t25_old, t10_old, t5_old, t2_old, t0_old, t250_new, t100_new, t50_new, t25_new, t10_new, t5_new, t2_new, t0_new, renamed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s. %s, %s)"
+        sql = "INSERT INTO sample_history (fk_sample_id, t25_old, t10_old, t5_old, t2_old, t0_old, t25_new, t10_new, t5_new, t2_new, t0_new, renamed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s. %s, %s)"
         cur.execute(sql, (samid,
-                          oldsnad['t250'], oldsnad['t100'], oldsnad['t50'], oldsnad['t25'],
+                          oldsnad['t25'],
                           oldsnad['t10'], oldsnad['t5'], oldsnad['t2'], oldsnad['t0'],
-                          newsnad['t250'], newsnad['t100'], newsnad['t50'], newsnad['t25'],
+                          newsnad['t25'],
                           newsnad['t10'], newsnad['t5'], newsnad['t2'], newsnad['t0'],
                           datetime.now()))
 

@@ -461,12 +461,12 @@ def get_snp_addresses(db, samples):
         conn = psycopg2.connect(db)
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        sql = "SELECT s.sample_name, c.t0, c.t2, c.t5, c.t10, c.t25, c.t50, c.t100, c.t250 FROM samples s, sample_clusters c WHERE c.fk_sample_id=s.pk_id AND s.sample_name IN %s"
+        sql = "SELECT s.sample_name, c.t0, c.t2, c.t5, c.t10, c.t25 FROM samples s, sample_clusters c WHERE c.fk_sample_id=s.pk_id AND s.sample_name IN %s"
         cur.execute(sql, (tuple(samples), ))
         rows = cur.fetchall()
         for r in rows:
-            snads[r['sample_name']] = "%i.%i.%i.%i.%i.%i.%i.%i" \
-                          % (r['t250'], r['t100'], r['t50'], r['t25'], r['t10'], r['t5'], r['t2'], r['t0'])
+            snads[r['sample_name']] = "%i.%i.%i.%i.%i" \
+                          % (r['t25'], r['t10'], r['t5'], r['t2'], r['t0'])
 
     except psycopg2.Error as e:
          logging.error("Database reported error: %s" % (str(e)))

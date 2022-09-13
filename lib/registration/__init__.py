@@ -11,7 +11,7 @@ from lib.ClusterStats import ClusterStats
 
 # --------------------------------------------------------------------------------------------------
 
-def register_sample(cur, sample_id, distances, new_snad, zscore_ignore, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
+def register_sample(cur, sample_id, distances, new_snad, zscore_ignore, levels=[0, 2, 5, 10, 25]):
     """
     Registers a sample in the database and updates all cluster and sample statistics
 
@@ -123,24 +123,18 @@ def register_sample(cur, sample_id, distances, new_snad, zscore_ignore, levels=[
     # end for lvl, cluster in zip(levels, new_snad):
 
 
-    sql = "INSERT INTO sample_clusters (fk_sample_id, t0, t2, t5, t10, t25, t50, t100, t250, t0_mean, t2_mean, t5_mean, t10_mean, t25_mean, t50_mean, t100_mean, t250_mean) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    sql = "INSERT INTO sample_clusters (fk_sample_id, t0, t2, t5, t10, t25, t0_mean, t2_mean, t5_mean, t10_mean, t25_mean) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
     cur.execute(sql, (sample_id,
                       final_snad[levels[0]],
                       final_snad[levels[1]],
                       final_snad[levels[2]],
                       final_snad[levels[3]],
                       final_snad[levels[4]],
-                      final_snad[levels[5]],
-                      final_snad[levels[6]],
-                      final_snad[levels[7]],
                       means[levels[0]],
                       means[levels[1]],
                       means[levels[2]],
                       means[levels[3]],
-                      means[levels[4]],
-                      means[levels[5]],
-                      means[levels[6]],
-                      means[levels[7]],))
+                      means[levels[4]],))
 
     return [final_snad[x] for x in levels]
 

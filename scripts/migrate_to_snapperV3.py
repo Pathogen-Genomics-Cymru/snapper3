@@ -149,7 +149,7 @@ def calculate_per_sample_cluster_stats(target_cur, dm):
     """
 
     # get all samples and their clusters from db
-    sql = "SELECT c.pk_id, c.fk_sample_id, c.t0, c.t2, c.t5, c.t10, c.t25, c.t50, c.t100, c.t250 FROM sample_clusters c, samples s WHERE s.ignore_sample=false AND s.ignore_zscore=false AND c.fk_sample_id=s.pk_id"
+    sql = "SELECT c.pk_id, c.fk_sample_id, c.t0, c.t2, c.t5, c.t10, c.t25 FROM sample_clusters c, samples s WHERE s.ignore_sample=false AND s.ignore_zscore=false AND c.fk_sample_id=s.pk_id"
     target_cur.execute(sql)
     rows = target_cur.fetchall()
     for r in rows:
@@ -161,7 +161,7 @@ def calculate_per_sample_cluster_stats(target_cur, dm):
 
         means = {}
 
-        for lvl in ['t0', 't2', 't5', 't10', 't25', 't50', 't100', 't250']:
+        for lvl in ['t0', 't2', 't5', 't10', 't25']:
 
             # get all other members of this cluster - DO NOT INCLUDE IGNORED SAMPLES
             sql = "SELECT s.sample_name AS samplename FROM samples s, sample_clusters c WHERE s.ignore_sample=false AND s.ignore_zscore=false AND c.fk_sample_id=s.pk_id AND c."+lvl+"=%s AND c.fk_sample_id!=%s"
@@ -186,11 +186,11 @@ def calculate_per_sample_cluster_stats(target_cur, dm):
                 means[lvl] = sum(other_dists)/float(len(other_dists))
 
         # check we got all of them
-        assert len(means.keys()) == 8
+        assert len(means.keys()) == 5
 
         # update table with mean of all distances of the current cluster to all other members of the sample's clusters
-        sql = "UPDATE sample_clusters SET (t0_mean, t2_mean, t5_mean, t10_mean, t25_mean, t50_mean, t100_mean, t250_mean) = (%s, %s, %s, %s, %s, %s, %s, %s) WHERE pk_id=%s"
-        target_cur.execute(sql, (means['t0'], means['t2'], means['t5'], means['t10'], means['t25'], means['t50'], means['t100'], means['t250'], r['pk_id'], ))
+        sql = "UPDATE sample_clusters SET (t0_mean, t2_mean, t5_mean, t10_mean, t25_mean) = (%s, %s, %s, %s, %s) WHERE pk_id=%s"
+        target_cur.execute(sql, (means['t0'], means['t2'], means['t5'], means['t10'], means['t25'], r['pk_id'], ))
 
     return 0
 
@@ -212,7 +212,7 @@ def calculate_per_cluster_stats(target_cur, dm):
     always 0
     """
 
-    for lvl in ['t0', 't2', 't5', 't10', 't25', 't50', 't100', 't250']:
+    for lvl in ['t0', 't2', 't5', 't10', 't25']:
 
         # get all clusters on a level and the number of members WITHOUT IGNORE SAMPLES from database
         # also DON'T INCLUDE zscore_ignore SAMPLES
@@ -612,7 +612,7 @@ def migrate_samples_and_clusters(source_cur, target_cur):
             continue
 
         # get clustering information from strain_clusters
-        sql = "SELECT t0, t2, t5, t10, t25, t50, t100, t250 FROM strain_clusters WHERE name=%s"
+        sql = "SELECT t0, t2, t5, t10, t25 FROM strain_clusters WHERE name=%s"
         source_cur.execute(sql, (sam, ))
         rows = source_cur.fetchall()
         # abandon all hope if there is conflicting information about the clustering
@@ -628,8 +628,8 @@ def migrate_samples_and_clusters(source_cur, target_cur):
 
         # else enter clustering information in sample_clusters
         r = rows[0]
-        sql = "INSERT INTO sample_clusters (fk_sample_id, t0, t2, t5, t10, t25, t50, t100, t250) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
-        target_cur.execute(sql, (sample_pkid, r['t0'], r['t2'], r['t5'], r['t10'], r['t25'], r['t50'], r['t100'], r['t250'], ))
+        sql = "INSERT INTO sample_clusters (fk_sample_id, t0, t2, t5, t10, t25) VALUES (%s, %s, %s, %s, %s, %s)"
+        target_cur.execute(sql, (sample_pkid, r['t0'], r['t2'], r['t5'], r['t10'], r['t25']))
 
     return all_sample_names
 
