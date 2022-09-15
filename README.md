@@ -1,5 +1,7 @@
 # snapper3
 
+This is an edited version of snapper3 with clustering distances cut-offs of t0, t2, t5, t10 and t25 (not t250, t100 and t50)
+
 A beta version of the software is provided in **/phengs/hpc_software/phe/snapper3/3-0**. To use it:
 
 ```bash
