@@ -11,7 +11,7 @@ from lib.ClusterStats import ClusterStats
 
 # --------------------------------------------------------------------------------------------------
 
-def check_merging_needed(cur, distances, new_snad, levels=[0, 5, 10, 25, 50, 100, 250]):
+def check_merging_needed(cur, distances, new_snad, levels=[0, 5, 10, 25]):
     """
     Checks whether the assignment of the new sample to any of the proposed clusters would require
     the proposed cluster to be merge with any other clusters
@@ -24,7 +24,7 @@ def check_merging_needed(cur, distances, new_snad, levels=[0, 5, 10, 25, 50, 100
         sorted list of tuples with (sample_id, distance) with closes sample first
         e.g. [(298, 0), (37, 3), (55, 4)]
     new_snad: list
-        [t0 or None, t5 or None, t10, t25, t50, t100, t250]
+        [t0 or None, t5 or None, t10, t25]
 
     Returns
     -------
