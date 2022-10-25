@@ -1,6 +1,10 @@
 # snapper3
 
-This is an edited version of snapper3 with clustering distances cut-offs of t0, t2, t5, t10 and t25 (not t250, t100 and t50)
+Now including the distance table to store calculated distances and a new get_distance_new function to check and update the distance table.
+This should be ~2000x speed improvement when compared with the PHE older version. 
+The distance between two samples will only ever be calculated once forever! (before it was calculated 2 or 3 times per cluster merge). 
+This is an edited version of snapper3 with clustering distances cut-offs of t0, t2, t5, t10 and t25 (not t250, t100 and t50).
+
 
 A beta version of the software is provided in **/phengs/hpc_software/phe/snapper3/3-0**. To use it:
 

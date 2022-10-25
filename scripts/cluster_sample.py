@@ -158,7 +158,7 @@ def main(args):
             return 1
 
         if args['no_zscore_check'] == False:
-            zscore_fail, zscore_info = sndb.check_zscores(cur, distances, new_snad, merges)
+            zscore_fail, zscore_info = sndb.check_zscores(conn, cur, distances, new_snad, merges)
 
             if zscore_fail == None:
                 logging.error("Could not calculate z-scores. :-(")

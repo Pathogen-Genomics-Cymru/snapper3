@@ -129,7 +129,7 @@ def get_new_snp_address(nbhood, levels=[0, 2, 5, 10, 25]):
 
 # --------------------------------------------------------------------------------------------------
 
-def check_zscores(cur, distances, new_snad, merges, levels=[0, 2, 5, 10, 25]):
+def check_zscores(conn, cur, distances, new_snad, merges, levels=[0, 2, 5, 10, 25]):
     """
     Check the zscores of putting a new sample in the clusters proposed, considering merges.
 
@@ -187,7 +187,7 @@ def check_zscores(cur, distances, new_snad, merges, levels=[0, 2, 5, 10, 25]):
 
             # if there is a merge, we first need to calculate the stats for the newly created merged cluster
             logging.warning("Merge required at level %s between clusters %s. z-score will be checked for the new cluster resulting from this merge!", lvl, str(merges[lvl]))
-            current_mems = get_stats_for_merge(cur, merges[lvl])
+            current_mems = get_stats_for_merge(conn, cur, merges[lvl])
             # Create a new ClusterStats object from the values in the ClusterMerge object.
             # This is because we're adding a member to it below to calculate the zscores.
             # But we don't want that to happend to the stats object in the merge.
