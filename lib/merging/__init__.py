@@ -5,7 +5,7 @@ author: ulf.schaefer@phe.gov.uk
 
 """
 
-from lib.distances import get_all_pw_dists, get_distances_new
+from lib.distances import get_all_pw_dists_new, get_distances_new
 from lib.ClusterMerge import ClusterMerge
 from lib.ClusterStats import ClusterStats
 
@@ -138,7 +138,7 @@ def get_stats_for_merge(conn, cur, oMerge):
         # make a flat list out of the values in members which are lists
         current_mems = [item for sublist in members.values() for item in sublist]
 
-        all_pw_dists = get_all_pw_dists(cur, current_mems)
+        all_pw_dists = get_all_pw_dists_new(conn, cur, current_mems)
         oMerge.stats = ClusterStats(members=len(current_mems), dists=all_pw_dists)
 
     oMerge.final_members = current_mems

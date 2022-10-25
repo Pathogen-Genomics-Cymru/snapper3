@@ -8,7 +8,7 @@ from psycopg2.extras import DictCursor
 import lib.snapperdb as sndb
 import lib.registration as regis
 import lib.merging as merging
-from lib.distances import get_all_pw_dists, get_relevant_distances, get_distances_precalc
+from lib.distances import get_all_pw_dists_new, get_relevant_distances, get_distances_precalc
 
 # --------------------------------------------------------------------------------------------------
 
