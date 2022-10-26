@@ -8,7 +8,7 @@ from psycopg2.extras import DictCursor
 import lib.snapperdb as sndb
 import lib.registration as regis
 import lib.merging as merging
-from lib.distances import get_all_pw_dists, get_relevant_distances, get_distances_precalc
+from lib.distances import get_all_pw_dists_new, get_relevant_distances, get_distances_precalc
 
 # --------------------------------------------------------------------------------------------------
 
@@ -125,7 +125,7 @@ def main(args):
         logging.info("Calculating distances to all other samples now. Patience!")
 
         if args['precalc'] == None:
-            distances = get_relevant_distances(cur, sample_id)
+            distances = get_relevant_distances(conn, cur, sample_id)
         else:
             distances = get_distances_precalc(cur, sample_id, args['sample_name'], args['precalc'])
 
@@ -158,7 +158,7 @@ def main(args):
             return 1
 
         if args['no_zscore_check'] == False:
-            zscore_fail, zscore_info = sndb.check_zscores(cur, distances, new_snad, merges)
+            zscore_fail, zscore_info = sndb.check_zscores(conn, cur, distances, new_snad, merges)
 
             if zscore_fail == None:
                 logging.error("Could not calculate z-scores. :-(")
@@ -180,7 +180,7 @@ def main(args):
 
             levels = [0, 2, 5, 10, 25, 50, 100, 250]
             for lvl in merges.keys():
-                merging.do_the_merge(cur, merges[lvl])
+                merging.do_the_merge(conn, cur, merges[lvl])
                 # If merging cluster a and b, the final name of the merged cluster can be either a or b.
                 # So we need to make sure the cluster gets registered into the final name of the cluster
                 # and not into the cluster that has been deleted in the merge operation.

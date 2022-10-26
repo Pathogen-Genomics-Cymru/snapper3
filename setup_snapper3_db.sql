@@ -112,3 +112,16 @@ CREATE TABLE trees (
 );
 
 CREATE EXTENSION intarray;
+
+-- #################################################################################################
+-- adding distance table
+
+create table distances (
+    id_1 integer not null,
+    id_2 integer not null,
+    distance integer not null, 
+    primary key (id_1, id_2)
+);
+CREATE UNIQUE INDEX ON distances
+   (LEAST(id_1, id_2), GREATEST(id_1, id_2));
+   
