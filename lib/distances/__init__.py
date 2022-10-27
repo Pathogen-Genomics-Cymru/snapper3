@@ -57,6 +57,13 @@ def get_distances_new(conn, cur, test_sample_id, comp_id_list):
         d = sorted(sample_dist_dic.items(), key=itemgetter(1), reverse=False)
         return d
 
+    # chunk
+    remaining_list=list(remaining_set)
+    chunk_size=750
+    chunk_list=[]
+    for i in range(0, len(remaining_list), chunk_size):
+        chunk_list.append(remaining_list[i:i + chunk_size])
+
     # get list of contig ids from database
     sql = "SELECT pk_id FROM contigs"
     cur.execute(sql)
@@ -65,21 +72,24 @@ def get_distances_new(conn, cur, test_sample_id, comp_id_list):
 
     # calculate the missing distances
     dist_missing_dic = {}
-    for cid in contig_ids:
-        t0 = time()
-        cur.callproc("get_sample_distances_by_id", [test_sample_id, cid, list(remaining_set)])
-        result = cur.fetchall()
-        t1 = time()
-        logging.info("Calculated %i distances on contig %i with 'get_sample_distances_by_id' in %.3f seconds", len(result), cid, t1 - t0)
+    chunk_count=0
+    for small_chunk in chunk_list:
+        chunk_count=chunk_count+1
+        for cid in contig_ids:
+            t0 = time()
+            cur.callproc("get_sample_distances_by_id", [test_sample_id, cid, small_chunk])
+            result = cur.fetchall()
+            t1 = time()
+            logging.info("Calculated %i (C%i) distances on contig %i with 'get_sample_distances_by_id' in %.3f seconds", len(result), chunk_count, cid, t1 - t0)
 
-        # sum up if there are more than one contigs
-        for res in result:
-            if res[2] == None:
-                res[2] = 0
-            try:
-                dist_missing_dic[res[0]] += res[2]
-            except KeyError:
-                dist_missing_dic[res[0]] = res[2]
+            # sum up if there are more than one contigs
+            for res in result:
+                if res[2] == None:
+                    res[2] = 0
+                try:
+                    dist_missing_dic[res[0]] += res[2]
+                except KeyError:
+                    dist_missing_dic[res[0]] = res[2]
 
     # add missing distances to distances table and dist_missing_dic
     # distances (small_id, large_id, distance)
@@ -95,9 +105,9 @@ def get_distances_new(conn, cur, test_sample_id, comp_id_list):
         ordered_list.append(tuple(o_list))
     ordered_tup=tuple(ordered_list)
     args_str = b','.join(cur.mogrify('(%s,%s,%s)', x) for x in ordered_tup)
-    sql = "INSERT INTO distances VALUES " + args_str.decode("utf-8") 
-    cur.execute(sql)
-    conn.commit()
+    # sql = "INSERT INTO distances VALUES " + args_str.decode("utf-8") 
+    # cur.execute(sql)
+    # conn.commit()
     
     # convert to nested tuple list output
     d = sorted(sample_dist_dic.items(), key=itemgetter(1), reverse=False)
