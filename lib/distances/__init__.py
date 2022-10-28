@@ -105,9 +105,9 @@ def get_distances_new(conn, cur, test_sample_id, comp_id_list):
         ordered_list.append(tuple(o_list))
     ordered_tup=tuple(ordered_list)
     args_str = b','.join(cur.mogrify('(%s,%s,%s)', x) for x in ordered_tup)
-    # sql = "INSERT INTO distances VALUES " + args_str.decode("utf-8") 
-    # cur.execute(sql)
-    # conn.commit()
+    sql = "INSERT INTO distances VALUES " + args_str.decode("utf-8") 
+    cur.execute(sql)
+    conn.commit()
     
     # convert to nested tuple list output
     d = sorted(sample_dist_dic.items(), key=itemgetter(1), reverse=False)
