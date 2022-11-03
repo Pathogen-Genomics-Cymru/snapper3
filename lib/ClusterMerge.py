@@ -6,7 +6,7 @@ import sys
 import logging
 from datetime import datetime
 
-from lib.distances import get_distances_new
+from lib.distances import get_distances_para
 
 __version__= '0.1'
 __date__= '14Jul2017'
@@ -50,7 +50,7 @@ class ClusterMerge(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def calculate_per_member_stats(self, cur, conn):
+    def calculate_per_member_stats(self, cur, conn, pool_size=4):
         '''
         Calculate the mean distance of all members of the newly merged cluster to all other members
 
@@ -72,7 +72,7 @@ class ClusterMerge(object):
 
         for fm in self.final_members:
             others = [x for x in self.final_members if x != fm]
-            dists = get_distances_new(conn, cur, fm, others)
+            dists = get_distances_para(conn, cur, fm, others, pool_size)
             x = [d for (s, d) in dists]
             self.member_stats[fm] = sum(x) / float(len(x))
 

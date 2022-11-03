@@ -84,6 +84,11 @@ and update the cluster stats. [Default: Do not register.]""")
                       action='store_true',
                       help="""Add the sample even if it causes clusters to merge.
 [Default: Do not add if merge required.]""")
+    args.add_argument("--pool_size_dist_calc",
+                      type=int,
+                      default=4,
+                      dest="pool_size",
+                      help="pool_size for get distance calculation, value should be int from 1-12 default=4")
 
     return args
 
@@ -125,7 +130,7 @@ def main(args):
         logging.info("Calculating distances to all other samples now. Patience!")
 
         if args['precalc'] == None:
-            distances = get_relevant_distances(conn, cur, sample_id)
+            distances = get_relevant_distances(conn, cur, sample_id, args['pool_size'])
         else:
             distances = get_distances_precalc(cur, sample_id, args['sample_name'], args['precalc'])
 
@@ -158,7 +163,7 @@ def main(args):
             return 1
 
         if args['no_zscore_check'] == False:
-            zscore_fail, zscore_info = sndb.check_zscores(conn, cur, distances, new_snad, merges)
+            zscore_fail, zscore_info = sndb.check_zscores(conn, cur, distances, new_snad, merges, pool_size=args['pool_size'])
 
             if zscore_fail == None:
                 logging.error("Could not calculate z-scores. :-(")
@@ -180,7 +185,7 @@ def main(args):
 
             levels = [0, 2, 5, 10, 25, 50, 100, 250]
             for lvl in merges.keys():
-                merging.do_the_merge(conn, cur, merges[lvl])
+                merging.do_the_merge(conn, cur, merges[lvl], args['pool_size'])
                 # If merging cluster a and b, the final name of the merged cluster can be either a or b.
                 # So we need to make sure the cluster gets registered into the final name of the cluster
                 # and not into the cluster that has been deleted in the merge operation.
