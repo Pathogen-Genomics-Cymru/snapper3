@@ -663,7 +663,7 @@ def drop_sample(cur, sid):
 
 # --------------------------------------------------------------------------------------------------
 
-def check_cluster_integrity(conn, cur, pool_size, sample_id, snad, distances, levels=[0, 2, 5, 10, 25, 50, 100, 250], pool_size=4):
+def check_cluster_integrity(conn, cur, pool_size, sample_id, snad, distances, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
     """
     Check whether the removal of sample_id from any of its cluster necessitates
     the split of the cluster.
@@ -788,7 +788,7 @@ def check_cluster_integrity(conn, cur, pool_size, sample_id, snad, distances, le
 
 # --------------------------------------------------------------------------------------------------
 
-def get_distances_from_memory(conn, cur, pool_size, distances, a, targets, pool_size=4):
+def get_distances_from_memory(conn, cur, pool_size, distances, a, targets):
     """
     Get all the distances from 'a' to the target list. Check if they are in
     distances before calculating them. Put the newly calculatd into distances.

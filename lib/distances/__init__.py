@@ -12,6 +12,7 @@ import json
 import gzip
 from operator import itemgetter
 from multiprocessing import Pool
+from contextlib import closing
 import psycopg2
 from psycopg2.extras import DictCursor
 # --------------------------------------------------------------------------------------------------
@@ -91,15 +92,21 @@ def get_distances_para(conn, cur, test_sample_id, comp_id_list, pool_size=4):
         d = sorted(sample_dist_dic.items(), key=itemgetter(1), reverse=False)
         return d
 
-    # chunk
+    # chunk logic
     max_chunk_size=750
+    min_chunk_size=6
     remaining_list=list(remaining_set)
     chunk_size=int(len(remaining_list)/pool_size)+1
     if chunk_size > max_chunk_size:
-        chunk_size=max_chunk_size
+        chunk_size=int(len(remaining_list)/(pool_size*2))+1
+        if chunk_size > max_chunk_size:
+            chunk_size=max_chunk_size
+    elif chunk_size < min_chunk_size:
+        chunk_size=len(remaining_list)+1
+        pool_size=1
     chunk_list=[]
     for i in range(0, len(remaining_list), chunk_size):
-        chunk_list.append(remaining_list[i:i + chunk_size])
+            chunk_list.append(remaining_list[i:i + chunk_size])
 
     # get list of contig ids from database
     sql = "SELECT pk_id FROM contigs"
@@ -124,7 +131,7 @@ def get_distances_para(conn, cur, test_sample_id, comp_id_list, pool_size=4):
         'db' : {'user': conn.info.user, 'host':conn.info.host,'password':conn.info.password, 'dbname':conn.info.dbname}
         }
         pool_arg_list.append(input_dic)
-    with Pool(pool_size) as p:
+    with closing(Pool(processes=pool_size)) as p:
         result_list = p.map(distances_calc, pool_arg_list)
     for result in result_list:
         dist_missing_dic.update(result)
