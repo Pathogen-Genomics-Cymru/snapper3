@@ -16,6 +16,7 @@ $BODY$
 
 $BODY$
   LANGUAGE sql
+  PARALLEL SAFE
   COST 100;
 
 -- #################################################################################################
@@ -134,6 +135,7 @@ SELECT
 END;
 $BODY$
   LANGUAGE plpgsql IMMUTABLE
+  PARALLEL SAFE
   COST 100
   ROWS 1000;
 
