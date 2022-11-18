@@ -94,19 +94,25 @@ def get_distances_para(conn, cur, test_sample_id, comp_id_list, pool_size=4):
 
     # chunk logic
     max_chunk_size=750
-    min_chunk_size=6
+    min_chunk_size=4
     remaining_list=list(remaining_set)
-    chunk_size=int(len(remaining_list)/pool_size)+1
+    chunk_size=int(len(remaining_list)/pool_size)+(len(remaining_list) % pool_size > 0)
+    runs=1
     if chunk_size > max_chunk_size:
-        chunk_size=int(len(remaining_list)/(pool_size*2))+1
-        if chunk_size > max_chunk_size:
-            chunk_size=max_chunk_size
+        split=int(len(remaining_list)/max_chunk_size)+(len(remaining_list) % max_chunk_size > 0)
+        runs=int(split/pool_size)+(split % pool_size > 0)
+        chunk_size=int(len(remaining_list)/(pool_size*runs))+(len(remaining_list) % (pool_size*runs) > 0)
     elif chunk_size < min_chunk_size:
         chunk_size=len(remaining_list)+1
         pool_size=1
+    last_c_diff=(pool_size*runs*chunk_size)-len(remaining_list)
+    chunk_size_list=[chunk_size] * ((pool_size*runs)-last_c_diff)
+    chunk_size_list.extend([chunk_size-1] * last_c_diff)
     chunk_list=[]
-    for i in range(0, len(remaining_list), chunk_size):
-            chunk_list.append(remaining_list[i:i + chunk_size])
+    index_c=0
+    for test_chunk_size in chunk_size_list:
+        chunk_list.append(remaining_list[index_c:index_c+test_chunk_size])
+        index_c=index_c+test_chunk_size
 
     # get list of contig ids from database
     sql = "SELECT pk_id FROM contigs"
