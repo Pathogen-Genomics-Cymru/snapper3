@@ -8,7 +8,7 @@ import math
 
 __version__= '0.2'
 __date__= '24Oct2022'
-__author__ = 'jonathan.jenkins3@wales.nhs.uk'
+__author__ = 'ulf.schaefer@phe.gov.uk'
 
 
 # --------------------------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ class ClusterStats(object):
         self.stddev_pw_dist = None
         self.variance_pw_dist = None
 
-        if 'dists' in kwargs:
+        if 'dists' in kwargs.keys():
 
             self.nof_pw_dists = len(kwargs['dists'])
 
@@ -60,7 +60,7 @@ class ClusterStats(object):
                 # this is for one member or 0 member clusters only clusters
                 pass
 
-        elif 'stddev' in kwargs and 'mean' in kwargs:
+        elif 'stddev' in kwargs.keys() and 'mean' in kwargs.keys():
             self.nof_pw_dists = (self.members * (self.members-1))/2.0
             if self.members > 0:
                 self.mean_pw_dist = float(kwargs['mean'])

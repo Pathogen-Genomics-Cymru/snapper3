@@ -8,8 +8,8 @@ from datetime import datetime
 
 from lib.distances import get_distances_para
 
-__version__= '0.1'
-__date__= '14Jul2017'
+__version__= '0.2'
+__date__= '14Dec2022'
 __author__ = 'ulf.schaefer@phe.gov.uk'
 
 # --------------------------------------------------------------------------------------------------
@@ -60,6 +60,10 @@ class ClusterMerge(object):
             that's me
         cur: obj
             database cursor
+        conn: obj
+            database connection
+        pool_size: int
+            multiprocessing pool size to be passed on to any distance calculation
 
         Returns
         -------
