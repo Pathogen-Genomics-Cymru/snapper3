@@ -68,16 +68,20 @@ def get_stats_for_merge(conn, cur, oMerge, pool_size=4):
     """
     Get a stats object for two (or more) clusters after they have been merged:
     either: get the biggest cluster and get the stats from the database
-            the add on emember at a time from the other cluster(s)
-    or: (if we're merging clusters with only one member) get all pw distances
+            the add one member at a time from the other cluster(s)
+    or: (if we are merging clusters with only one member) get all pw distances
         in the merged cluster and create stats object with that
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
     oMerge: obj
         ClusterMerge object
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
 
     Returns
     -------
@@ -153,10 +157,14 @@ def do_the_merge(conn, cur, oMerge, pool_size=4):
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
     oMerge: obj
         ClusterMerge object
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
 
     Returns
     -------
@@ -184,12 +192,16 @@ def get_mean_distance_for_merged_cluster(conn, cur, samid, mems, pool_size=4):
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
     samid: int
         sample_id
     mems: list of int
         all members if this cluster
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     Returns
     -------
     m: float

@@ -5,7 +5,7 @@ from argparse import RawTextHelpFormatter
 import psycopg2
 from psycopg2.extras import DictCursor
 
-from lib.distances import get_distances_new, get_all_pw_dists_new
+from lib.distances import get_distances_para, get_all_pw_dists_new
 from lib.ClusterStats import ClusterStats
 from lib.utils import get_all_cluster_members
 
@@ -28,7 +28,7 @@ def get_desc():
     return r'''This removes a samples from the database, which is not a trivial thing to do because
 cluster stats and stats for other samples need to be updated.
 
-Also: The integrity of all clusters the sampe is in needs to be checked for the potential need to
+Also: The integrity of all clusters the sample is in needs to be checked for the potential need to
 split them, and if necessary clusters need splitting.
 
 __WARNING__: This may require the calculation of A LOT of distances and MAY TAKE A LONG TIME. Don't
@@ -104,7 +104,7 @@ def main(args):
     '''
 
     logging.debug("Args received: %s", str(args))
-    pool_size=args['pool_size']
+
     try:
         # open db
         conn = psycopg2.connect(args['db'])
@@ -168,7 +168,7 @@ def main(args):
             logging.info("This sample is a known outlier.")
             if args['just_ignore'] == True:
 
-                if update_clustering(conn, cur, pool_size, sample_id, snad, distances, zscr_flag, ) != 0:
+                if update_clustering(conn, cur, args['pool_size'], sample_id, snad, distances, zscr_flag, ) != 0:
                     logging.error("Error in update clustering.")
                     return 1
 
@@ -185,7 +185,7 @@ def main(args):
                 logging.info("So there is nothing to do.")
             else:
 
-                if update_clustering(conn, cur, pool_size, sample_id, snad, distances, zscr_flag) != 0:
+                if update_clustering(conn, cur, args['pool_size'], sample_id, snad, distances, zscr_flag) != 0:
                     logging.error("Error in update clustering.")
                     return 1
 
@@ -204,7 +204,7 @@ def main(args):
 
         if args['just_ignore'] == True:
 
-            if update_clustering(conn, cur, pool_size, sample_id, snad, distances, zscr_flag) != 0:
+            if update_clustering(conn, cur, args['pool_size'], sample_id, snad, distances, zscr_flag) != 0:
                 logging.error("Error in update clustering.")
                 return 1
 
@@ -219,12 +219,12 @@ def main(args):
             cur.execute(sql, (sample_id, ))
 
         elif args['known_outlier'] == True:
-            if make_known_outlier(conn, cur, pool_size, sample_id, snad, distances) != 0:
+            if make_known_outlier(conn, cur, args['pool_size'], sample_id, snad, distances) != 0:
                 logging.error("Error in update clustering.")
                 return 1
             logging.info("Sample successfully turned into a known outlier.")
         else:
-            if update_clustering(conn, cur, pool_size, sample_id, snad, distances, zscr_flag) != 0:
+            if update_clustering(conn, cur, args['pool_size'], sample_id, snad, distances, zscr_flag) != 0:
                 logging.error("Error in update clustering.")
                 return 1
 
@@ -257,8 +257,12 @@ def make_known_outlier(conn, cur, pool_size, sample_id, snad, distances):
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sample_id: int
         id of sample to remove
     snad: list
@@ -345,8 +349,12 @@ def update_clustering(conn, cur, pool_size, sample_id, snad, distances, zscr_fla
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sample_id: int
         id of sample to remove
     snad: list
@@ -412,8 +420,12 @@ def split_clusters(conn, cur, pool_size, sample_id, problems, lvl, distances):
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sample_id: int
         id of sample to remove
     problems: list of tuples
@@ -458,8 +470,12 @@ def update_cluster_stats_post_removal(conn, cur, pool_size, sid, clu, lvl, dista
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sid: int
         pk id of sample to remove
     clu: int
@@ -634,7 +650,7 @@ def update_cluster_stats_post_removal(conn, cur, pool_size, sid, clu, lvl, dista
 
 def drop_sample(cur, sid):
     """
-    Remove the sample with the id from the variants and samples tables.
+    Remove the sample with the id from the variants, samples and distances tables.
 
     Parameters
     ----------
@@ -670,8 +686,12 @@ def check_cluster_integrity(conn, cur, pool_size, sample_id, snad, distances, le
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sample_id: int
         id of sample to remove
     snad: list of 7 int
@@ -795,8 +815,12 @@ def get_distances_from_memory(conn, cur, pool_size, distances, a, targets):
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     distances: dist
         distances[a][b] = d
         distances[b][a] = d
@@ -871,8 +895,12 @@ def expand_from_node(conn, cur, pool_size, a, c, lvl, distances, sample_id=None)
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     a: int
         seed samples id
     c: int

@@ -2,7 +2,9 @@
 File contains some to get some distance calculations done for snapperdb v3.
 
 original author: ulf.schaefer@phe.gov.uk
-new author: jonathan.jenkins3@wales.nhs.uk (get_distances_para, get_distances_new, get_all_pw_dists_new)
+new author: jonathan.jenkins3@wales.nhs.uk (
+    get_distances_para, get_all_pw_dists_new,
+    independent_dist_calc, chunk_remaining_list)
 
 """
 
@@ -17,37 +19,63 @@ import psycopg2
 from psycopg2.extras import DictCursor
 # --------------------------------------------------------------------------------------------------
 
-def distances_calc(input_dic):
-    # input_dic = {
-    #     'small_chunk'    : small_chunk,
-    #     'test_sample_id' : test_sample_id,
-    #     'contig_ids'     : contig_ids,
-    #     'chunk_count'    : chunk_count,
-    #     'pool_size'      : pool_size,
-    #     'db' : {'user': user, 'host':host,'password':password, 'dbname':dbname} 
-    #     }
+def independent_dist_calc(input_dic):
+    """
+    Sets up an independent database connection to run get_sample_distances_by_id.
+    get_sample_distances_by_id calculates the distance of one sample (test_sample_id)
+    to a list of other samples (small_chunk). 
+
+    Parameters
+    ----------
+    input_dic: dictionary 
+        dictionary of arguments:
+            small_chunk,    : list of int
+                list of sample ids to compare distance to test_sample_id
+                [comparison_sample_id_1, comparison_sample_id_2, ...]
+            test_sample_id, : int
+            contig_ids,     : int
+            chunk_count,    : int
+            pool_size,      : int
+            db : dictionary 
+                user : str
+                host : str
+                password : str
+                dbname : str
+    Returns
+    -------
+    dist_dic: dictionary
+        A dictionary of distance results from the test_sample_id to other 
+        samples (e.g. comparison_sample_id_1) found in small_chunk list.
+        distance_1 is distance between test_sample_id and comparison_sample_id_1
+        { comparison_sample_id_1: distance_1,
+          comparison_sample_id_2: distance_2, ... }
+        { 953 : 52, 
+          1000: 1523, ....}
+    """
     db_dic=input_dic['db']
+    # make new independent database connection, need for parallel running
     conn1 = psycopg2.connect(user=db_dic['user'],host=db_dic['host'],password=db_dic['password'],dbname=db_dic['dbname'])
     cur1 = conn1.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    dist_missing_dic={}
+    dist_dic={}
     for cid in input_dic['contig_ids']:
+        # send calculation to database 
         t0 = time()
-        
         cur1.callproc("get_sample_distances_by_id", [input_dic['test_sample_id'], cid, input_dic['small_chunk']])
         result = cur1.fetchall()
         t1 = time()
-        logging.info("Calculated %i (C%i) distances on contig %i with 'get_sample_distances_by_id' in %.3f seconds", len(result), input_dic['chunk_count'], cid, t1 - t0)
-        # sum up if there are more than one contigs
+        logging.info("Calculated %i (C%i) distances on contig %i with 'get_sample_distances_by_id' in %.3f seconds",
+            len(result), input_dic['chunk_count'], cid, t1 - t0)
+        # sum up if there is more than one contig
         for res in result:
             if res[2] == None:
                 res[2] = 0
             try:
-                dist_missing_dic[res[0]] += res[2]
+                dist_dic[res[0]] += res[2]
             except KeyError:
-                dist_missing_dic[res[0]] = res[2]
+                dist_dic[res[0]] = res[2]
     cur1.close()
     conn1.close()
-    return dist_missing_dic
+    return dist_dic
 
 def chunk_remaining_list(remaining_list,pool_size=4,min_chunk_size=3,max_chunk_size=750):
     """
@@ -71,8 +99,10 @@ def chunk_remaining_list(remaining_list,pool_size=4,min_chunk_size=3,max_chunk_s
     Returns
     -------
     chunk_list: list of lists
-        The oridingal list of intergers chunked in to smaller lists 
-        [[],[],[],[]]
+        The original list of integers chunked in to smaller lists 
+        [[1,2,3],[4,5,6],[7,8,9],[10,11,12]]
+    out_pool_size: int 
+        only changes if chunk_size < min_chunk_size
     """
     # adding one to the chunk_size if there is a remainder af dividing by pool_size
     chunk_size=int(len(remaining_list)/pool_size)+(len(remaining_list) % pool_size > 0)
@@ -102,9 +132,11 @@ def chunk_remaining_list(remaining_list,pool_size=4,min_chunk_size=3,max_chunk_s
     out_pool_size=pool_size
     return chunk_list, out_pool_size
 
-def get_distances_para(conn, cur, test_sample_id, comp_id_list, pool_size=4):
+def get_distances_para(conn, cur, test_sample_id, comparison_sample_ids_list, pool_size=4):
     """
-    Get the distances of this sample to the other samples from the database. 
+    Get the distances of this sample to the other samples from the database.
+    Calculations with large numbers of distances to calculate are split
+    into chunks that can run in parallel.
 
     Parameters
     ----------
@@ -114,20 +146,21 @@ def get_distances_para(conn, cur, test_sample_id, comp_id_list, pool_size=4):
         database cursor
     test_sample_id: int
         sample pk_id
-    comp_id_list: list of int
-        other samples to calculate the distance to
+    comparison_sample_ids_list: list of int
+        list of other sample pk_id to calculate the distance to test_sample_id.
     pool_size: int
         multiprocessing pool size to be passed on to any distance calculation
 
     Returns
     -------
     d: list of tuples
-        sorted list of tuples with (sample_id, distance) with closes sample first
+        sorted list of tuples with (comparison_sample_id_1, distance) with closest sample first.
+        The distance is between test_sample_id and other comparison_sample_id_1
         e.g. [(298, 0), (37, 3), (55, 4)]
-        None if fail ### Remove
+        None if fail
     """
     # Check for pre-calculated distances
-    comp_id_set=set(comp_id_list)
+    comp_sample_ids_set=set(comparison_sample_ids_list)
     sql = "SELECT * FROM distances WHERE id_1={0} OR id_2={0}".format(test_sample_id)
     cur.execute(sql)
     rows = cur.fetchall()
@@ -139,17 +172,17 @@ def get_distances_para(conn, cur, test_sample_id, comp_id_list, pool_size=4):
         else:
             result_key=int(row[0])
         # filter to only samples were looking for
-        if result_key in comp_id_set:
+        if result_key in comp_sample_ids_set:
             sample_dist_dic[result_key]=int(row[2])
     sample_ids_with_calculated_distances=set(sample_dist_dic.keys()) # 
 
     # remove samples that have a distance pre-calculated to not calculate again
-    remaining_set=comp_id_set.difference(sample_ids_with_calculated_distances)
+    remaining_set=comp_sample_ids_set.difference(sample_ids_with_calculated_distances)
     if len(remaining_set) < 1:
         d = sorted(sample_dist_dic.items(), key=itemgetter(1), reverse=False)
         return d
 
-    # split list in to opimised chunks
+    # split list in to optimised chunks
     remaining_list=list(remaining_set)
     chunk_list, out_pool_size=chunk_remaining_list(remaining_list,pool_size=pool_size)
 
@@ -166,16 +199,21 @@ def get_distances_para(conn, cur, test_sample_id, comp_id_list, pool_size=4):
     for small_chunk in chunk_list:
         chunk_count=chunk_count+1
         input_dic = {
-        'small_chunk'    : small_chunk,
-        'test_sample_id' : test_sample_id,
-        'contig_ids'     : contig_ids,
-        'chunk_count'    : chunk_count,
-        'pool_size'      : out_pool_size,
-        'db' : {'user': conn.info.user, 'host':conn.info.host,'password':conn.info.password, 'dbname':conn.info.dbname}
+            'small_chunk'    : small_chunk,
+            'test_sample_id' : test_sample_id,
+            'contig_ids'     : contig_ids,
+            'chunk_count'    : chunk_count,
+            'pool_size'      : out_pool_size,
+            'db' : {
+                'user'    : conn.info.user,
+                'host'    : conn.info.host,
+                'password': conn.info.password,
+                'dbname'  : conn.info.dbname
+                }
         }
         pool_arg_list.append(input_dic)
     with closing(Pool(processes=out_pool_size)) as p:
-        result_list = p.map(distances_calc, pool_arg_list)
+        result_list = p.map(independent_dist_calc, pool_arg_list)
     for result in result_list:
         dist_missing_dic.update(result)
 
@@ -202,7 +240,7 @@ def get_distances_para(conn, cur, test_sample_id, comp_id_list, pool_size=4):
     d = sorted(sample_dist_dic.items(), key=itemgetter(1), reverse=False)
     return d
 
-def get_all_pw_dists_new(conn, cur, comp_id_list, pool_size=4):
+def get_all_pw_dists_new(conn, cur, comparison_sample_ids_list, pool_size=4):
     """
     Get all pairwise distances between the samples in the input list. 
 
@@ -212,7 +250,7 @@ def get_all_pw_dists_new(conn, cur, comp_id_list, pool_size=4):
         database connection
     cur: obj
         database cursor
-    comp_id_list: list of int
+    comparison_sample_ids_list: list of int
         list of sample pk_id
     pool_size: int
         multiprocessing pool size to be passed on to any distance calculation
@@ -223,14 +261,14 @@ def get_all_pw_dists_new(conn, cur, comp_id_list, pool_size=4):
     None if there is a problem
     """
 
-    comp_id_set=set(comp_id_list)
+    comp_sample_ids_set=set(comparison_sample_ids_list)
     done = set()
     dists_list = []
 
-    for sample_id in comp_id_set:
+    for sample_id in comp_sample_ids_set:
         # note the ones that are already done, so nothing is calculated twice.
         done.add(sample_id)
-        remaining_set = comp_id_set.difference(done)
+        remaining_set = comp_sample_ids_set.difference(done)
         if len(remaining_set) < 1:
             break
         result = get_distances_para(conn, cur, sample_id, list(remaining_set), pool_size)
@@ -238,109 +276,9 @@ def get_all_pw_dists_new(conn, cur, comp_id_list, pool_size=4):
             # get distance from list of tuples produced by get_distances_para
             dists_list.append(pair[1])
     
-    assert len(dists_list) == (len(comp_id_set) * (len(comp_id_set)-1))/2
+    assert len(dists_list) == (len(comp_sample_ids_set) * (len(comp_sample_ids_set)-1))/2
 
     return dists_list
-
-def get_distances_new(conn, cur, test_sample_id, comp_id_list):
-    """
-    Get the distances of this sample to the other samples from the database.
-
-    Parameters
-    ----------
-    cur: obj
-        database cursor
-    test_sample_id: int
-        sample pk_id
-    comp_id_list: list of int
-        other samples to calculate the distance to
-
-    Returns
-    -------
-    d: list of tuples
-        sorted list of tuples with (sample_id, distance) with closes sample first
-        e.g. [(298, 0), (37, 3), (55, 4)]
-        None if fail
-    """
-    # Check for pre-calculated distances
-    comp_id_set=set(comp_id_list)
-    sql = "SELECT * FROM distances WHERE id_1={0} OR id_2={0}".format(test_sample_id)
-    cur.execute(sql)
-    rows = cur.fetchall()
-    done=[]
-    sample_dist_dic={}
-    for row in rows:
-        if int(row[0]) == test_sample_id:
-            result_key=int(row[1])
-        else:
-            result_key=int(row[0])
-        # filter to only samples were looking for
-        if result_key in comp_id_set:
-            sample_dist_dic[result_key]=int(row[2])
-    done=set(sample_dist_dic.keys())
-
-    # check stil samples reaminaing
-    remaining_set=comp_id_set.difference(done)
-    if len(remaining_set) < 1:
-        d = sorted(sample_dist_dic.items(), key=itemgetter(1), reverse=False)
-        return d
-
-    # chunk
-    remaining_list=list(remaining_set)
-    chunk_size=750
-    chunk_list=[]
-    for i in range(0, len(remaining_list), chunk_size):
-        chunk_list.append(remaining_list[i:i + chunk_size])
-
-    # get list of contig ids from database
-    sql = "SELECT pk_id FROM contigs"
-    cur.execute(sql)
-    rows = cur.fetchall()
-    contig_ids = [r['pk_id'] for r in rows]
-
-    # calculate the missing distances
-    dist_missing_dic = {}
-    chunk_count=0
-    for small_chunk in chunk_list:
-        chunk_count=chunk_count+1
-        for cid in contig_ids:
-            t0 = time()
-            cur.callproc("get_sample_distances_by_id", [test_sample_id, cid, small_chunk])
-            result = cur.fetchall()
-            t1 = time()
-            logging.info("Calculated %i (C%i) distances on contig %i with 'get_sample_distances_by_id' in %.3f seconds", len(result), chunk_count, cid, t1 - t0)
-
-            # sum up if there are more than one contigs
-            for res in result:
-                if res[2] == None:
-                    res[2] = 0
-                try:
-                    dist_missing_dic[res[0]] += res[2]
-                except KeyError:
-                    dist_missing_dic[res[0]] = res[2]
-
-    # add missing distances to distances table and dist_missing_dic
-    # distances (small_id, large_id, distance)
-    ordered_list=[]
-    for key, item in dist_missing_dic.items():
-        comp_id=int(key)
-        dist_test=int(item)
-        sample_dist_dic[comp_id]=dist_test
-        if test_sample_id < comp_id:
-            o_list=[test_sample_id,comp_id,dist_test]
-        else:
-            o_list=[comp_id,test_sample_id,dist_test]
-        ordered_list.append(tuple(o_list))
-    ordered_tup=tuple(ordered_list)
-    args_str = b','.join(cur.mogrify('(%s,%s,%s)', x) for x in ordered_tup)
-    sql = "INSERT INTO distances VALUES {} ON CONFLICT (id_1, id_2) DO UPDATE SET distance = excluded.distance".format(
-        args_str.decode("utf-8"))
-    cur.execute(sql)
-    # conn.commit()
-    
-    # convert to nested tuple list output
-    d = sorted(sample_dist_dic.items(), key=itemgetter(1), reverse=False)
-    return d
 
 
 # --------------------------------------------------------------------------------------------------

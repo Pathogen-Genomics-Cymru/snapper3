@@ -135,6 +135,8 @@ def check_zscores(conn, cur, distances, new_snad, merges, levels=[0, 2, 5, 10, 2
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
     distances: list of tuples
@@ -144,6 +146,8 @@ def check_zscores(conn, cur, distances, new_snad, merges, levels=[0, 2, 5, 10, 2
         [t0 or None, t5 or None, t10, t25, t50, t100, t250]
     merges: dict
         {lvl: ClusterMerge object}
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
 
     Returns
     -------
