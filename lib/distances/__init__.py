@@ -230,9 +230,9 @@ def get_distances_para(conn, cur, test_sample_id, comparison_sample_ids_list, po
             o_list=[comp_id,test_sample_id,dist_test]
         ordered_list.append(tuple(o_list))
     ordered_tup=tuple(ordered_list)
-    args_str = b','.join(cur.mogrify('(%s,%s,%s)', x) for x in ordered_tup)
+    args_str = str(','.join(str(x) for x in ordered_tup))
     sql = "INSERT INTO distances VALUES {} ON CONFLICT (id_1, id_2) DO UPDATE SET distance = excluded.distance".format(
-        args_str.decode("utf-8"))
+        args_str)
     cur.execute(sql)
     conn.commit()
     
