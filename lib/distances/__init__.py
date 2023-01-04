@@ -77,7 +77,7 @@ def independent_dist_calc(input_dic):
     conn1.close()
     return dist_dic
 
-def chunk_remaining_list(remaining_list,pool_size=4,min_chunk_size=3,max_chunk_size=750):
+def chunk_remaining_list(remaining_list,pool_size=4,min_chunk_size=8,max_chunk_size=750):
     """
     Split a list in to chunks to optimise the use of parallel pools and place limits the 
     size of the distance queries.
@@ -90,8 +90,9 @@ def chunk_remaining_list(remaining_list,pool_size=4,min_chunk_size=3,max_chunk_s
         multiprocessing pool size to be passed on to any distance calculation
     min_chunk_size: int
         Added to limit time wasted on small quick queries to the database 
-        generally pool_size*min_chunk_size should be 10-20
+        generally min_chunk_size should be 5-20
     max_chunk_size: int
+        Set greater than double the min_chunk_size.
         Looking at previous calculation times there is a trend for the 
         distance calculation take longer per samples when number of samples
         inputted was greater than about 750.
@@ -104,25 +105,34 @@ def chunk_remaining_list(remaining_list,pool_size=4,min_chunk_size=3,max_chunk_s
     out_pool_size: int 
         only changes if chunk_size < min_chunk_size
     """
-    # adding one to the chunk_size if there is a remainder af dividing by pool_size
-    chunk_size=int(len(remaining_list)/pool_size)+(len(remaining_list) % pool_size > 0)
+    # Setting initial chunk size
+    chunk_size=int(len(remaining_list)/pool_size)
     pool_runs=1
     if chunk_size > max_chunk_size:
         # calculate how many chucks would be need at the max chunk_size
+        # adding one to the chucks_at_max if there is a remainder
         chucks_at_max=int(len(remaining_list)/max_chunk_size)+(len(remaining_list) % max_chunk_size > 0)
         # calculate number of full pool submission need 
         pool_runs=int(chucks_at_max/pool_size)+(chucks_at_max % pool_size > 0)
         # optimise the chunk size for the the total number of submitted queries
-        chunk_size=int(len(remaining_list)/(pool_size*pool_runs))+(len(remaining_list) % (pool_size*pool_runs) > 0)
+        chunk_size=int(len(remaining_list)/(pool_size*pool_runs))
     elif chunk_size < min_chunk_size:
-        chunk_size=len(remaining_list)+1
-        pool_size=1
+        # reduce the pool size if possible 
+        reduced_pool_size=int(len(remaining_list)/min_chunk_size)
+        if pool_size > 1 and reduced_pool_size > 1:
+            # optimise the chunk size for reduced_pool_size
+            chunk_size=int(len(remaining_list)/(reduced_pool_size*pool_runs))
+            pool_size=reduced_pool_size
+        else:   
+            # too small for more than one pool
+            chunk_size=len(remaining_list)
+            pool_size=1
     # calculate how many list items would be remaining at with current chunk size
-    num_items_remaining=(pool_size*pool_runs*chunk_size)-len(remaining_list)
+    num_items_remaining=len(remaining_list)-(pool_size*pool_runs*chunk_size)
     # make a list with desired chunk size total list length =(pool_size*pool_runs)
     chunk_size_list=[chunk_size] * ((pool_size*pool_runs)-num_items_remaining)
     # spread the remainder evenly over multiple chunks 
-    chunk_size_list.extend([chunk_size-1] * num_items_remaining)
+    chunk_size_list.extend([chunk_size+1] * num_items_remaining)
     # chunk the input list into chunks sizes in found chunk_size_list
     chunk_list=[]
     index_c=0
