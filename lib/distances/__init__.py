@@ -1,11 +1,11 @@
 """
-File contains some to get some distance calculations done for snapperdb v3.
+this file contains functions to use the get distance database calculations. 
+First written for snapperdb v3, updated for version 3-5.
 
 original author: ulf.schaefer@phe.gov.uk
-new author: jonathan.jenkins3@wales.nhs.uk (
+update author: jonathan.jenkins3@wales.nhs.uk (
     get_distances_para, get_all_pw_dists_new,
     independent_dist_calc, chunk_remaining_list)
-
 """
 
 import logging
@@ -110,10 +110,10 @@ def chunk_remaining_list(remaining_list,pool_size=4,min_chunk_size=8,max_chunk_s
     pool_runs=1
     if chunk_size > max_chunk_size:
         # calculate how many chucks would be need at the max chunk_size
-        # adding one to the chucks_at_max if there is a remainder
-        chucks_at_max=int(len(remaining_list)/max_chunk_size)+(len(remaining_list) % max_chunk_size > 0)
+        # adding one to the chunks_at_max if there is a remainder
+        chunks_at_max=int(len(remaining_list)/max_chunk_size)+(len(remaining_list) % max_chunk_size > 0)
         # calculate number of full pool submission need 
-        pool_runs=int(chucks_at_max/pool_size)+(chucks_at_max % pool_size > 0)
+        pool_runs=int(chunks_at_max/pool_size)+(chunks_at_max % pool_size > 0)
         # optimise the chunk size for the the total number of submitted queries
         chunk_size=int(len(remaining_list)/(pool_size*pool_runs))
     elif chunk_size < min_chunk_size:
@@ -166,8 +166,7 @@ def get_distances_para(conn, cur, test_sample_id, comparison_sample_ids_list, po
     d: list of tuples
         sorted list of tuples with (comparison_sample_id_1, distance) with closest sample first.
         The distance is between test_sample_id and other comparison_sample_id_1
-        e.g. [(298, 0), (37, 3), (55, 4)]
-        None if fail
+        e.g. [(298, 0), (37, 3), (55, 4)]      
     """
     # Check for pre-calculated distances
     comp_sample_ids_set=set(comparison_sample_ids_list)
@@ -179,8 +178,12 @@ def get_distances_para(conn, cur, test_sample_id, comparison_sample_ids_list, po
     for row in rows:
         if int(row[0]) == test_sample_id:
             result_key=int(row[1])
-        else:
+        elif int(row[1]) == test_sample_id:
             result_key=int(row[0])
+        else:
+            raise ValueError(
+                'ERROR: test_sample_id ({}) must match one id in db query return ({} or {})'.format(
+                    test_sample_id,row[0],row[1]))
         # filter to only samples were looking for
         if result_key in comp_sample_ids_set:
             sample_dist_dic[result_key]=int(row[2])

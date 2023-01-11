@@ -87,6 +87,7 @@ and update the cluster stats. [Default: Do not register.]""")
     args.add_argument("--pool_size_dist_calc",
                       type=int,
                       default=4,
+                      choices=range(1, 13),
                       dest="pool_size",
                       help="pool_size for get distance calculation, value should be int from 1-12 default=4")
 
