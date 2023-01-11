@@ -146,7 +146,9 @@ def get_distances_para(conn, cur, test_sample_id, comparison_sample_ids_list, po
     """
     Get the distances of this sample to the other samples from the database.
     Calculations with large numbers of distances to calculate are split
-    into chunks that can run in parallel.
+    into chunks that can run in parallel. The calculated distances are then stored
+    in the distances table. An UPSERT (INSERT ... ON CONFLICT UPDATE) is used to 
+    allow distances to be safely calculated by two different processes in the future.
 
     Parameters
     ----------
