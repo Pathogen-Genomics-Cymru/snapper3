@@ -1,5 +1,5 @@
 """
-this file contains functions to use the get distance database calculations. 
+This file contains functions to use the get distance database calculations. 
 First written for snapperdb v3, updated for version 3-5.
 
 original author: ulf.schaefer@phe.gov.uk
