@@ -5,7 +5,7 @@ author: ulf.schaefer@phe.gov.uk
 
 """
 
-from lib.distances import get_all_pw_dists, get_distances
+from lib.distances import get_all_pw_dists_new, get_distances_para
 from lib.ClusterMerge import ClusterMerge
 from lib.ClusterStats import ClusterStats
 
@@ -64,20 +64,24 @@ def check_merging_needed(cur, distances, new_snad, levels=[0, 5, 10, 25, 50, 100
 
 # --------------------------------------------------------------------------------------------------
 
-def get_stats_for_merge(cur, oMerge):
+def get_stats_for_merge(conn, cur, oMerge, pool_size=4):
     """
     Get a stats object for two (or more) clusters after they have been merged:
     either: get the biggest cluster and get the stats from the database
-            the add on emember at a time from the other cluster(s)
-    or: (if we're merging clusters with only one member) get all pw distances
+            the add one member at a time from the other cluster(s)
+    or: (if we are merging clusters with only one member) get all pw distances
         in the merged cluster and create stats object with that
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
     oMerge: obj
         ClusterMerge object
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
 
     Returns
     -------
@@ -126,7 +130,7 @@ def get_stats_for_merge(cur, oMerge):
 
         # get all distances for new members and update stats obj iteratively
         for nm in new_members:
-            dists = get_distances(cur, nm, current_mems)
+            dists = get_distances_para(conn, cur, nm, current_mems, pool_size)
             all_dists_to_new_member = [d for (s, d) in dists]
             oMerge.stats.add_member(all_dists_to_new_member)
             current_mems.append(nm)
@@ -138,7 +142,7 @@ def get_stats_for_merge(cur, oMerge):
         # make a flat list out of the values in members which are lists
         current_mems = [item for sublist in members.values() for item in sublist]
 
-        all_pw_dists = get_all_pw_dists(cur, current_mems)
+        all_pw_dists = get_all_pw_dists_new(conn, cur, current_mems, pool_size)
         oMerge.stats = ClusterStats(members=len(current_mems), dists=all_pw_dists)
 
     oMerge.final_members = current_mems
@@ -147,16 +151,20 @@ def get_stats_for_merge(cur, oMerge):
 
 # --------------------------------------------------------------------------------------------------
 
-def do_the_merge(cur, oMerge):
+def do_the_merge(conn, cur, oMerge, pool_size=4):
     """
     Merge the clusters on level lvl.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
     oMerge: obj
         ClusterMerge object
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
 
     Returns
     -------
@@ -167,10 +175,10 @@ def do_the_merge(cur, oMerge):
     # if this was deactivated by the user we need to do it now.
     if oMerge.final_name == None:
         # this calculates ClusterStats for the merged cluster
-        _ = get_stats_for_merge(cur, oMerge)
+        current_mems = get_stats_for_merge(conn, cur, oMerge, pool_size)
 
         # we still need to calculate the mean distance of all members of the merged cluster to all other members
-        oMerge.calculate_per_member_stats(cur)
+        oMerge.calculate_per_member_stats(cur, conn, pool_size)
 
     oMerge.update_tables(cur)
 
@@ -178,18 +186,22 @@ def do_the_merge(cur, oMerge):
 
 # --------------------------------------------------------------------------------------------------
 
-def get_mean_distance_for_merged_cluster(cur, samid, mems):
+def get_mean_distance_for_merged_cluster(conn, cur, samid, mems, pool_size=4):
     """
     Get the mean distance of a sample (samid) to all samples in the mems list.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
     samid: int
         sample_id
     mems: list of int
         all members if this cluster
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     Returns
     -------
     m: float
@@ -199,7 +211,7 @@ def get_mean_distance_for_merged_cluster(cur, samid, mems):
     m = None
     assert samid in mems
     others = [x for x in mems if x != samid]
-    dists = get_distances(cur, samid, others)
+    dists = get_distances_para(conn, cur, samid, others, pool_size)
     d = [d for (s, d) in dists]
     assert len(d) == len(others)
     m = sum(d) / float(len(d))

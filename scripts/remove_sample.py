@@ -5,7 +5,7 @@ from argparse import RawTextHelpFormatter
 import psycopg2
 from psycopg2.extras import DictCursor
 
-from lib.distances import get_distances, get_all_pw_dists
+from lib.distances import get_distances_para, get_all_pw_dists_new
 from lib.ClusterStats import ClusterStats
 from lib.utils import get_all_cluster_members
 
@@ -28,7 +28,7 @@ def get_desc():
     return r'''This removes a samples from the database, which is not a trivial thing to do because
 cluster stats and stats for other samples need to be updated.
 
-Also: The integrity of all clusters the sampe is in needs to be checked for the potential need to
+Also: The integrity of all clusters the sample is in needs to be checked for the potential need to
 split them, and if necessary clusters need splitting.
 
 __WARNING__: This may require the calculation of A LOT of distances and MAY TAKE A LONG TIME. Don't
@@ -80,6 +80,12 @@ and clustered again later.]""")
 but cluster stats will be reverted. ignore_zscore will
 be set to TRUE. [DEFAULT: Remove everything. Sample can be added
 and clustered again later.]""")
+    args.add_argument("--pool_size_dist_calc",
+                    type=int,
+                    default=4,
+                    choices=range(1, 13),
+                    dest="pool_size",
+                    help="pool_size for get distance calculation, value should be int from 1-12 default=4")
 
 
     return args
@@ -163,7 +169,7 @@ def main(args):
             logging.info("This sample is a known outlier.")
             if args['just_ignore'] == True:
 
-                if update_clustering(cur, sample_id, snad, distances, zscr_flag) != 0:
+                if update_clustering(conn, cur, args['pool_size'], sample_id, snad, distances, zscr_flag, ) != 0:
                     logging.error("Error in update clustering.")
                     return 1
 
@@ -180,7 +186,7 @@ def main(args):
                 logging.info("So there is nothing to do.")
             else:
 
-                if update_clustering(cur, sample_id, snad, distances, zscr_flag) != 0:
+                if update_clustering(conn, cur, args['pool_size'], sample_id, snad, distances, zscr_flag) != 0:
                     logging.error("Error in update clustering.")
                     return 1
 
@@ -199,7 +205,7 @@ def main(args):
 
         if args['just_ignore'] == True:
 
-            if update_clustering(cur, sample_id, snad, distances, zscr_flag) != 0:
+            if update_clustering(conn, cur, args['pool_size'], sample_id, snad, distances, zscr_flag) != 0:
                 logging.error("Error in update clustering.")
                 return 1
 
@@ -214,12 +220,12 @@ def main(args):
             cur.execute(sql, (sample_id, ))
 
         elif args['known_outlier'] == True:
-            if make_known_outlier(cur, sample_id, snad, distances) != 0:
+            if make_known_outlier(conn, cur, args['pool_size'], sample_id, snad, distances) != 0:
                 logging.error("Error in update clustering.")
                 return 1
             logging.info("Sample successfully turned into a known outlier.")
         else:
-            if update_clustering(cur, sample_id, snad, distances, zscr_flag) != 0:
+            if update_clustering(conn, cur, args['pool_size'], sample_id, snad, distances, zscr_flag) != 0:
                 logging.error("Error in update clustering.")
                 return 1
 
@@ -245,15 +251,19 @@ def main(args):
 
 # end of main --------------------------------------------------------------------------------------
 
-def make_known_outlier(cur, sample_id, snad, distances):
+def make_known_outlier(conn, cur, pool_size, sample_id, snad, distances):
     """
     Turns a sample from a fully cluster one to a 'known outlier'. This involves now splitting since
     the sample is kept in the cluster. Stats for the clusters this sample is in need to be updated.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sample_id: int
         id of sample to remove
     snad: list
@@ -281,7 +291,7 @@ def make_known_outlier(cur, sample_id, snad, distances):
     logging.info("Calculating %i distances to update stats.", len(t250_members))
     # get the distances and remember them in the dict
     # we need them anyway, so we store them in the dict
-    _ = get_distances_from_memory(cur, distances, sample_id, t250_members)
+    _ = get_distances_from_memory(conn, cur, pool_size, distances, sample_id, t250_members)
 
     for clu, lvl in zip(snad, [0, 2, 5, 10, 25, 50, 100, 250]):
         t_lvl = "t%s" % (lvl)
@@ -334,14 +344,18 @@ def make_known_outlier(cur, sample_id, snad, distances):
 
 # --------------------------------------------------------------------------------------------------
 
-def update_clustering(cur, sample_id, snad, distances, zscr_flag):
+def update_clustering(conn, cur, pool_size, sample_id, snad, distances, zscr_flag):
     """
     Update the sample clustering. Check for splits.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sample_id: int
         id of sample to remove
     snad: list
@@ -359,7 +373,7 @@ def update_clustering(cur, sample_id, snad, distances, zscr_flag):
     """
 
     logging.info("Checking if any clusters need splitting after sample removal.")
-    splits = check_cluster_integrity(cur, sample_id, snad, distances)
+    splits = check_cluster_integrity(conn, cur, pool_size, sample_id, snad, distances)
     logging.info("Clusters that need splitting after sample removal: %s", splits)
 
     # splits structure:
@@ -387,11 +401,11 @@ def update_clustering(cur, sample_id, snad, distances, zscr_flag):
         logging.info("Calculating %i distances to update stats.", len(t250_members))
         # get the distances and remember them in the dict
         # we need them anyway, so we store them in the dict
-        _ = get_distances_from_memory(cur, distances, sample_id, t250_members)
+        _ = get_distances_from_memory(conn, cur, pool_size, distances, sample_id, t250_members)
 
         # update all stats in all clusters on all levels
         for clu, lvl in zip(snad, [0, 2, 5, 10, 25, 50, 100, 250]):
-            if update_cluster_stats_post_removal(cur, sample_id, clu, lvl, distances, splits[lvl], zscr_flag) == None:
+            if update_cluster_stats_post_removal(conn, cur, pool_size, sample_id, clu, lvl, distances, splits[lvl], zscr_flag) == None:
                 logging.error("Problem with updating cluster stats.")
                 return 1
     else:
@@ -401,14 +415,18 @@ def update_clustering(cur, sample_id, snad, distances, zscr_flag):
 
 # --------------------------------------------------------------------------------------------------
 
-def split_clusters(cur, sample_id, problems, lvl, distances):
+def split_clusters(conn, cur, pool_size, sample_id, problems, lvl, distances):
     """
     Split cluster.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sample_id: int
         id of sample to remove
     problems: list of tuples
@@ -436,7 +454,7 @@ def split_clusters(cur, sample_id, problems, lvl, distances):
             if groups.has_key(node) or (node in visited):
                 continue
             else:
-                groups[node] = expand_from_node(cur, node, c, lvl, distances, sample_id)
+                groups[node] = expand_from_node(conn, cur, pool_size, node, c, lvl, distances, sample_id)
 
         # if the combined langth of all groups covers the whole cluster (without the removee), we're done
         if sum([len(x) for x in groups.values()]) == len(mems) - 1:
@@ -447,14 +465,18 @@ def split_clusters(cur, sample_id, problems, lvl, distances):
 
 # --------------------------------------------------------------------------------------------------
 
-def update_cluster_stats_post_removal(cur, sid, clu, lvl, distances, split, zscr_flag):
+def update_cluster_stats_post_removal(conn, cur, pool_size, sid, clu, lvl, distances, split, zscr_flag):
     """
     Update the cluster stats and the sample stats for removing the sample from the cluster.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sid: int
         pk id of sample to remove
     clu: int
@@ -528,7 +550,7 @@ def update_cluster_stats_post_removal(cur, sid, clu, lvl, distances, split, zscr
     # if tere is a split on this level
     if split != None:
         logging.info("Cluster %s need to be split.", clu)
-        groups = split_clusters(cur, sid, split, lvl, distances)
+        groups = split_clusters(conn, cur, pool_size, sid, split, lvl, distances)
         logging.debug("It will be split into these subclusters: %s", groups)
 
         # groups[a] = [1,2,3]
@@ -548,7 +570,7 @@ def update_cluster_stats_post_removal(cur, sid, clu, lvl, distances, split, zscr
                 logging.debug("Removing %s from %s", m, members)
                 if m in members:
                     members.remove(m)
-                    this_di = [d for (s, d) in get_distances_from_memory(cur, distances, m, members)]
+                    this_di = [d for (s, d) in get_distances_from_memory(conn, cur, pool_size, distances, m, members)]
                     assert oStats.members == (len(this_di) + 1)
                     # i.e. turn the oStats object into the stats object for the largest cluster after the split
                     oStats.remove_member(this_di)
@@ -562,7 +584,7 @@ def update_cluster_stats_post_removal(cur, sid, clu, lvl, distances, split, zscr
             # make a new stats object based on the list of members and all pw distances between them
             # remove known outliers previously encountered from consideration
             grli = list(set(grli).difference(knwntlrs))
-            all_pw_grdi = get_all_pw_dists(cur, grli)
+            all_pw_grdi = get_all_pw_dists_new(conn, cur, grli, pool_size)
             oStatsTwo = ClusterStats(members=len(grli), dists=all_pw_grdi)
             sql = "SELECT max("+t_lvl+") AS m FROM sample_clusters"
             cur.execute(sql)
@@ -582,7 +604,7 @@ def update_cluster_stats_post_removal(cur, sid, clu, lvl, distances, split, zscr
             # created subcluster and update in the database
             for nm in grli:
                 targets = [x for x in grli if x != nm]
-                alldis = [di for (sa, di) in get_distances_from_memory(cur, distances, nm, targets)]
+                alldis = [di for (sa, di) in get_distances_from_memory(conn, cur, pool_size, distances, nm, targets)]
                 try:
                     mean = sum(alldis) / float(len(alldis))
                 except ZeroDivisionError:
@@ -613,7 +635,7 @@ def update_cluster_stats_post_removal(cur, sid, clu, lvl, distances, split, zscr
         # If there was no split on this level and the samples was previously ignored,
         # it will be empty
         for remomem in removed_members:
-            x = get_distances_from_memory(cur, distances, mem, [remomem])[0][1]
+            x = get_distances_from_memory(conn, cur, pool_size, distances, mem, [remomem])[0][1]
             try:
                 n_mean = ((p_mean * len(members)) - x) / float(len(members) - 1)
             except ZeroDivisionError:
@@ -629,7 +651,7 @@ def update_cluster_stats_post_removal(cur, sid, clu, lvl, distances, split, zscr
 
 def drop_sample(cur, sid):
     """
-    Remove the sample with the id from the variants and samples tables.
+    Remove the sample with the id from the variants, samples and distances tables.
 
     Parameters
     ----------
@@ -650,20 +672,27 @@ def drop_sample(cur, sid):
 
     sql = "DELETE FROM samples WHERE pk_id=%s"
     cur.execute(sql, (sid, ))
+    
+    sql = "DELETE FROM distances WHERE id_1={0} OR id_2={0}".format(sid)
+    cur.execute(sql)
 
     return 0
 
 # --------------------------------------------------------------------------------------------------
 
-def check_cluster_integrity(cur, sample_id, snad, distances, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
+def check_cluster_integrity(conn, cur, pool_size, sample_id, snad, distances, levels=[0, 2, 5, 10, 25, 50, 100, 250]):
     """
     Check whether the removal of sample_id from any of its cluster necessitates
     the split of the cluster.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     sample_id: int
         id of sample to remove
     snad: list of 7 int
@@ -695,7 +724,7 @@ def check_cluster_integrity(cur, sample_id, snad, distances, levels=[0, 2, 5, 10
         mems.remove(sample_id)
 
         # get distances of the removee to them
-        d = get_distances(cur, sample_id, mems)
+        d = get_distances_para(conn, cur, sample_id, mems, pool_size)
         connected_mems = []
         for (sa, di) in d:
             # get all samples that are connected to the removee with d <= t
@@ -714,7 +743,7 @@ def check_cluster_integrity(cur, sample_id, snad, distances, levels=[0, 2, 5, 10
                     try:
                         pwd = distances[a][b]
                     except KeyError:
-                        pwd = get_all_pw_dists(cur, [a, b])[0]
+                        pwd = get_all_pw_dists_new(conn, cur, [a, b], pool_size)[0]
                         remember_distance(distances, a, b, pwd)
                     # if pw distance between the two sampes is bigger than the threshold,
                     # the link between the samples might be broken, unless there is another samples
@@ -744,7 +773,7 @@ def check_cluster_integrity(cur, sample_id, snad, distances, levels=[0, 2, 5, 10
                 # get all the members of the current cluster except the pivot
                 all_mems_but_pivot = [x for x in mems if x != pivot]
                 # get all the distances from the pivot to thpse members
-                d = get_distances_from_memory(cur,
+                d = get_distances_from_memory(conn, cur, pool_size,
                                               distances,
                                               pivot,
                                               all_mems_but_pivot)
@@ -780,15 +809,19 @@ def check_cluster_integrity(cur, sample_id, snad, distances, levels=[0, 2, 5, 10
 
 # --------------------------------------------------------------------------------------------------
 
-def get_distances_from_memory(cur, distances, a, targets):
+def get_distances_from_memory(conn, cur, pool_size, distances, a, targets):
     """
     Get all the distances from 'a' to the target list. Check if they are in
     distances before calculating them. Put the newly calculatd into distances.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     distances: dist
         distances[a][b] = d
         distances[b][a] = d
@@ -814,7 +847,7 @@ def get_distances_from_memory(cur, distances, a, targets):
             others.append(t)
 
     if len(others) > 0:
-        d = get_distances(cur, a, others)
+        d = get_distances_para(conn, cur, a, others, pool_size)
         for (sa, di) in d:
             remember_distance(distances, a, sa, di)
         result += d
@@ -857,14 +890,18 @@ def remember_distance(distances, a, b, d):
 
 # --------------------------------------------------------------------------------------------------
 
-def expand_from_node(cur, a, c, lvl, distances, sample_id=None):
+def expand_from_node(conn, cur, pool_size, a, c, lvl, distances, sample_id=None):
     """
     From a seed samples a, get all samples that can be connect with <=lvl over multiple nodes.
 
     Parameters
     ----------
+    conn: obj
+        database connection
     cur: obj
         database cursor
+    pool_size: int
+        multiprocessing pool size to be passed on to any distance calculation
     a: int
         seed samples id
     c: int
@@ -894,7 +931,7 @@ def expand_from_node(cur, a, c, lvl, distances, sample_id=None):
     idx = 0
     while True:
         pivot = with_a[idx]
-        dis = get_distances_from_memory(cur, distances, pivot, mems)
+        dis = get_distances_from_memory(conn, cur, pool_size, distances, pivot, mems)
         # get all the new nodes with are connected to the curren pivot and which we have not considered yet
         new_nodes = [sa for (sa, di) in dis if di <= lvl and sa not in with_a]
         # if there are no new ones and we have reached the end of the list, we're done

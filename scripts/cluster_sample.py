@@ -8,7 +8,7 @@ from psycopg2.extras import DictCursor
 import lib.snapperdb as sndb
 import lib.registration as regis
 import lib.merging as merging
-from lib.distances import get_all_pw_dists, get_relevant_distances, get_distances_precalc
+from lib.distances import get_all_pw_dists_new, get_relevant_distances, get_distances_precalc
 
 # --------------------------------------------------------------------------------------------------
 
@@ -84,6 +84,12 @@ and update the cluster stats. [Default: Do not register.]""")
                       action='store_true',
                       help="""Add the sample even if it causes clusters to merge.
 [Default: Do not add if merge required.]""")
+    args.add_argument("--pool_size_dist_calc",
+                      type=int,
+                      default=4,
+                      choices=range(1, 13),
+                      dest="pool_size",
+                      help="pool_size for get distance calculation, value should be int from 1-12 default=4")
 
     return args
 
@@ -125,7 +131,7 @@ def main(args):
         logging.info("Calculating distances to all other samples now. Patience!")
 
         if args['precalc'] == None:
-            distances = get_relevant_distances(cur, sample_id)
+            distances = get_relevant_distances(conn, cur, sample_id, args['pool_size'])
         else:
             distances = get_distances_precalc(cur, sample_id, args['sample_name'], args['precalc'])
 
@@ -158,7 +164,8 @@ def main(args):
             return 1
 
         if args['no_zscore_check'] == False:
-            zscore_fail, zscore_info = sndb.check_zscores(cur, distances, new_snad, merges)
+            levels=[0, 2, 5, 10, 25, 50, 100, 250]
+            zscore_fail, zscore_info = sndb.check_zscores(conn, cur, distances, new_snad, merges, levels, args['pool_size'])
 
             if zscore_fail == None:
                 logging.error("Could not calculate z-scores. :-(")
@@ -179,12 +186,12 @@ def main(args):
         if args['with_registration'] == True:
 
             levels = [0, 2, 5, 10, 25, 50, 100, 250]
-            for lvl in merges.keys():
-                merging.do_the_merge(cur, merges[lvl])
+            for test_level in merges.keys():
+                merging.do_the_merge(conn, cur, merges[test_level], args['pool_size'])
                 # If merging cluster a and b, the final name of the merged cluster can be either a or b.
                 # So we need to make sure the cluster gets registered into the final name of the cluster
                 # and not into the cluster that has been deleted in the merge operation.
-                new_snad[levels.index(lvl)] = merges[lvl].final_name
+                new_snad[levels.index(test_level)] = merges[test_level].final_name
 
             final_snad = regis.register_sample(cur, sample_id, distances, new_snad, args['no_zscore_check'])
 

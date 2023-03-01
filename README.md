@@ -1,5 +1,10 @@
 # snapper3
 
+Now including the distance table to store calculated distances and a new get_distance_new function to check and update the distance table.
+This should be ~2000x speed improvement when compared with the PHE older version. 
+The distance between two samples will only ever be calculated once forever! (before it was calculated 2 or 3 times per cluster merge).
+
+
 A beta version of the software is provided in **/phengs/hpc_software/phe/snapper3/3-0**. To use it:
 
 ```bash
